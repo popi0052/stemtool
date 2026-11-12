@@ -1,0 +1,18 @@
+# Dependencias: se reinstalan con npm install
+node_modules/
+
+# Estado de ejecucion: un job por carpeta, con sus stems en FLAC.
+# Son cientos de MB de audio y se regeneran pasando la cancion de nuevo.
+data/
+
+# Audio sintetico de prueba: lo regenera py/make_test_audio.py en segundos
+fixture/
+
+# Salida de tsc: se reconstruye con npm run build
+web/dist/
+*.tsbuildinfo
+
+# El venv de Python vive fuera del proyecto (~/.venvs/stemtool), pero por si
+# alguien lo crea aqui dentro.
+.venv/
+__pycache__/

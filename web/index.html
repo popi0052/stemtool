@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stemtool</title>
+<style>
+  :root {
+    --bg: #fbfbfc; --panel: #fff; --line: #e3e3e8; --text: #16161a;
+    --dim: #71717a; --accent: #4f46e5; --ok: #16a34a; --bad: #dc2626;
+    --vocals: #e11d48; --drums: #f59e0b; --bass: #0891b2; --other: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0e11; --panel: #17171b; --line: #2a2a31; --text: #ededf0;
+      --dim: #8b8b96; --accent: #818cf8; --ok: #4ade80; --bad: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .sub { color: var(--dim); font-size: 13px; margin-bottom: 20px; }
+
+  #drop {
+    border: 1.5px dashed var(--line); border-radius: 12px; padding: 32px 20px;
+    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    background: var(--panel);
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+  #drop.over { border-style: solid; }
+  #drop b { display: block; margin-bottom: 4px; }
+  #drop span { color: var(--dim); font-size: 13px; }
+
+  .opts { display: flex; gap: 16px; align-items: center; justify-content: center;
+          margin: 14px 0 24px; font-size: 13px; color: var(--dim); flex-wrap: wrap; }
+  .opts label { display: flex; gap: 6px; align-items: center; cursor: pointer; color: var(--text); }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+          padding: 14px 16px; margin-bottom: 12px; }
+  .top { display: flex; align-items: baseline; gap: 10px; }
+  .name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden;
+          text-overflow: ellipsis; white-space: nowrap; }
+  .tag { font-size: 11px; color: var(--dim); border: 1px solid var(--line);
+         border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+  .x { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 16px;
+       line-height: 1; padding: 2px 4px; }
+  .x:hover { color: var(--bad); }
+
+  .facts { display: flex; gap: 18px; margin: 10px 0 0; font-size: 13px; flex-wrap: wrap; }
+  .facts div { color: var(--dim); }
+  .facts b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .warn { color: var(--dim); font-size: 11px; }
+
+  .bar { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden;
+         margin: 12px 0 6px; }
+  .bar i { display: block; height: 100%; background: var(--accent); width: 0;
+           transition: width .3s; }
+  .status { font-size: 12px; color: var(--dim); }
+  .status.err { color: var(--bad); }
+
+  .stems { margin: 12px 0 0; display: none; }
+  .stems.on { display: block; }
+  .stem { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
+  .stem input[type=checkbox] { accent-color: var(--accent); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .stem .label { flex: 1; text-transform: capitalize; }
+  .stem.off .label { opacity: .4; }
+  .stem button { background: none; border: 1px solid var(--line); border-radius: 6px;
+                 color: var(--dim); cursor: pointer; font-size: 11px; padding: 2px 7px; }
+  .stem button.on { border-color: var(--accent); color: var(--accent); }
+
+  .actions { display: flex; gap: 8px; align-items: center; margin-top: 12px;
+             padding-top: 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  button.primary { background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+                   padding: 7px 14px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  button.primary:disabled { opacity: .45; cursor: default; }
+  button.ghost { background: none; border: 1px solid var(--line); color: var(--text);
+                 border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
+  select { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+           border-radius: 8px; padding: 7px 8px; font-size: 13px; }
+  .seek { flex: 1; min-width: 120px; accent-color: var(--accent); }
+  .time { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .empty { color: var(--dim); font-size: 13px; text-align: center; padding: 28px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>stemtool</h1>
+  <p class="sub">Arrastra un audio. Te doy BPM y key al momento, y los 4 stems cuando acabe.</p>
+
+  <div id="drop">
+    <b>Suelta aqui tu cancion</b>
+    <span>mp3, wav, flac, m4a, ogg &middot; o pulsa para elegir</span>
+    <input type="file" id="file" multiple accept="audio/*" hidden>
+  </div>
+
+  <div class="opts">
+    <label><input type="radio" name="preset" value="fast" checked> Rapido <span>(htdemucs_ft)</span></label>
+    <label><input type="radio" name="preset" value="max"> Maxima calidad <span>(RoFormer + Demucs)</span></label>
+  </div>
+
+  <div id="list"></div>
+  <p class="empty" id="empty">Nada todavia.</p>
+</main>
+<script type="module" src="dist/web/app.js"></script>
+</body>
+</html>

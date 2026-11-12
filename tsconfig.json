@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noUncheckedIndexedAccess": false,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    // rootDir "." explicito: types.ts vive en la raiz porque lo comparten
+    // servidor y cliente. Si se deja que tsc infiera la raiz comun, la ruta de
+    // salida cambia segun que ficheros entren al programa. Asi es fija:
+    // web/dist/web/app.js, que es lo que carga index.html.
+    "rootDir": ".",
+    "outDir": "web/dist"
+  },
+  "include": ["web/app.ts"]
+}

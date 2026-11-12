@@ -1,0 +1,766 @@
+<title>Cómo funciona stemtool</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  /* Columna de lectura de 68ch con figuras a sangre completa; los cuatro
+     colores de stem del propio app son la unica paleta semantica. */
+  :root {
+    --bg: #f6f8f9;
+    --surface: #ffffff;
+    --fg: #14181d;
+    --muted: #5b6671;
+    --line: #dde3e7;
+    --accent: #0e7490;
+    --vocals: #be123c;
+    --drums: #b45309;
+    --bass: #0e7490;
+    --other: #6d28d9;
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1116;
+      --surface: #161d24;
+      --fg: #e7ecf0;
+      --muted: #94a2ad;
+      --line: #273139;
+      --accent: #22d3ee;
+      --vocals: #fb7185;
+      --drums: #fbbf24;
+      --bass: #22d3ee;
+      --other: #a78bfa;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1116;
+    --surface: #161d24;
+    --fg: #e7ecf0;
+    --muted: #94a2ad;
+    --line: #273139;
+    --accent: #22d3ee;
+    --vocals: #fb7185;
+    --drums: #fbbf24;
+    --bass: #22d3ee;
+    --other: #a78bfa;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 56px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(2.1rem, 6vw, 3rem); font-weight: 700; letter-spacing: -0.025em; line-height: 1.08; }
+  h2 { font-size: clamp(1.35rem, 3.4vw, 1.7rem); font-weight: 600; letter-spacing: -0.015em; }
+  h3 { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.005em; }
+  p { margin: 0; max-width: 68ch; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .lede { font-size: clamp(1.05rem, 2.6vw, 1.22rem); color: var(--muted); max-width: 60ch; }
+
+  section { display: flex; flex-direction: column; gap: 20px; }
+  section > header { display: flex; flex-direction: column; gap: 8px; }
+
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+  code { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0.1em 0.34em; }
+
+  figure { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  figure svg { width: 100%; max-width: 100%; height: auto; color: var(--fg); }
+  figcaption { font-size: 0.86rem; color: var(--muted); max-width: 64ch; }
+
+  /* tabla de etapas */
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  td.who { padding-right: 18px; white-space: nowrap; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 500;
+    border: 1px solid currentColor; border-radius: 3px; padding: 2px 6px;
+  }
+  .tag.ts { color: var(--bass); }
+  .tag.py { color: var(--other); }
+  td .what { font-family: var(--mono); font-size: 0.82rem; color: var(--muted); display: block; margin-top: 3px; }
+
+  /* cifras del null test */
+  .stats { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; padding: 0; margin: 0; }
+  .stats li {
+    flex: 1 1 200px; min-width: 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .stats .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .stats .v { font-family: var(--display); font-size: 1.72rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .stats .n { font-size: 0.84rem; color: var(--muted); font-family: var(--mono); }
+
+  /* trampas */
+  .trap { border-left: 3px solid var(--accent); padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .traps { display: flex; flex-direction: column; gap: 28px; }
+
+  .note {
+    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--drums);
+    border-radius: 0 8px 8px 0; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;
+  }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+  /* arbol de archivos */
+  pre.tree {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.75; margin: 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 20px; overflow-x: auto;
+  }
+  pre.tree b { font-weight: 500; color: var(--accent); }
+  pre.tree i { font-style: normal; color: var(--muted); }
+  pre.verbs {
+    font-family: var(--mono); font-size: 1rem; margin: 0; overflow-x: auto;
+    letter-spacing: 0.02em;
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">herramienta local · typescript + python</p>
+    <h1>Cómo funciona stemtool</h1>
+    <p class="lede">Arrastras un mp3, te dice el BPM y la tonalidad en segundos, y unos minutos después tienes la voz, la batería, el bajo y el resto en cuatro archivos. Son tres procesos en tu máquina hablando entre ellos.</p>
+  </header>
+
+  <section>
+    <header>
+      <p class="eyebrow">01 · el reparto</p>
+      <h2>Tres procesos, dos lenguajes</h2>
+    </header>
+    <p>El navegador es la interfaz. Node es el portero: recibe el archivo, ordena la cola, sirve los resultados. Python es el único que toca la GPU, y el único que no muere entre canciones.</p>
+
+    <figure>
+      <svg viewBox="0 0 720 370" role="img" aria-label="Diagrama: el navegador habla con el servidor Node por PUT y SSE; Node habla con un proceso Python persistente por stdin y stdout en JSON-lines; Python usa la GPU y Node escribe en disco.">
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+          </marker>
+        </defs>
+
+        <!-- eyebrows -->
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)" text-anchor="middle">
+          <text x="85" y="34">navegador</text>
+          <text x="360" y="34">node 22</text>
+          <text x="635" y="34">python 3.12</text>
+        </g>
+
+        <!-- lanes -->
+        <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+          <rect x="1" y="46" width="168" height="194" rx="10"></rect>
+          <rect x="276" y="46" width="168" height="194" rx="10"></rect>
+          <rect x="551" y="46" width="168" height="194" rx="10"></rect>
+        </g>
+        <g stroke="var(--line)" stroke-width="1.5">
+          <line x1="1" y1="84" x2="169" y2="84"></line>
+          <line x1="276" y1="84" x2="444" y2="84"></line>
+          <line x1="551" y1="84" x2="719" y2="84"></line>
+        </g>
+        <g font-family="Archivo, sans-serif" font-size="13" font-weight="600" fill="var(--fg)" text-anchor="middle">
+          <text x="85" y="72">app.ts</text>
+          <text x="360" y="72">index.ts · queue.ts</text>
+          <text x="635" y="72">worker.py</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)">
+          <text x="14" y="106">drag &amp; drop</text>
+          <text x="14" y="126">Web Audio API</text>
+          <text x="14" y="146">solo / mute</text>
+          <text x="14" y="166">repintado de</text>
+          <text x="14" y="182">tarjetas</text>
+
+          <text x="289" y="106">HTTP sin deps</text>
+          <text x="289" y="126">cola de 1 en 1</text>
+          <text x="289" y="146">estado en JSON</text>
+          <text x="289" y="166">zip y export</text>
+          <text x="289" y="182">de formatos</text>
+
+          <text x="564" y="106">torch · demucs</text>
+          <text x="564" y="126">roformer</text>
+          <text x="564" y="146">librosa · soxr</text>
+          <text x="564" y="166">vive entre</text>
+          <text x="564" y="182">canciones</text>
+        </g>
+
+        <!-- arrows navegador <-> node -->
+        <g stroke="currentColor" stroke-width="1.5" marker-end="url(#a1)" fill="none">
+          <line x1="174" y1="150" x2="270" y2="150"></line>
+          <line x1="271" y1="196" x2="175" y2="196"></line>
+          <line x1="449" y1="150" x2="545" y2="150"></line>
+          <line x1="546" y1="196" x2="450" y2="196"></line>
+          <line x1="360" y1="244" x2="360" y2="284"></line>
+          <line x1="635" y1="244" x2="635" y2="284"></line>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)" text-anchor="middle">
+          <text x="222" y="142">PUT · body crudo</text>
+          <text x="222" y="188">SSE · progreso</text>
+          <text x="497" y="142">stdin · JSON-lines</text>
+          <text x="497" y="188">stdout · result</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">
+          <text x="368" y="268">escribe y sirve</text>
+          <text x="643" y="268">fp32</text>
+        </g>
+
+        <!-- disco y gpu -->
+        <rect x="276" y="288" width="168" height="56" rx="8" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"></rect>
+        <rect x="551" y="288" width="168" height="56" rx="8" fill="var(--bass)" fill-opacity="0.12" stroke="var(--bass)" stroke-width="1.5"></rect>
+        <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--fg)" text-anchor="middle">
+          <text x="360" y="312">data/&lt;id&gt;/</text>
+          <text x="635" y="312">GPU · 8 GB VRAM</text>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--muted)" text-anchor="middle">
+          <text x="360" y="330">mix · 4 stems · zip</text>
+          <text x="635" y="330">el cuello de botella</text>
+        </g>
+      </svg>
+      <figcaption>Los checkpoints tardan entre 5 y 20 segundos en cargar, así que el proceso Python no se lanza por canción: se queda vivo y Node le pasa trabajos por líneas de JSON. La cola es de uno en uno porque el límite no es el CPU, son los 8 GB de VRAM.</figcaption>
+    </figure>
+
+    <h3>Por qué dos lenguajes y no uno</h3>
+    <p>No es una decisión de gusto. Los modelos de separación (Demucs, BS-RoFormer) y los de análisis (librosa) existen en Python y nada más; portarlos no es una tarde de trabajo. Todo lo demás —HTTP, cola, estado, interfaz, reproductor, empaquetado— es plomería que TypeScript hace sin una sola dependencia de runtime, así que la frontera cae donde cae el cálculo numérico. Python no sabe que hay un servidor; Node no sabe lo que es una convolución.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">02 · el camino</p>
+      <h2>El viaje de un archivo</h2>
+    </header>
+    <p>El BPM y la tonalidad llegan mucho antes que los stems, y eso es a propósito: el análisis cuesta segundos y la separación minutos, así que el análisis va primero y tienes algo en pantalla mientras la GPU trabaja.</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Etapa</th><th>Quién</th><th>Qué pasa</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">subida</td>
+            <td class="who"><span class="tag ts">TS</span></td>
+            <td>El <code>File</code> va como cuerpo crudo de un <code>PUT</code>, no como multipart: para un archivo y dos parámetros, parsear boundaries son ochenta líneas delicadas a cambio de nada.<span class="what">→ data/&lt;id&gt;/input.mp3</span></td>
+          </tr>
+          <tr>
+            <td class="mono">prepare</td>
+            <td class="who"><span class="tag py">Py</span></td>
+            <td>Se decodifica <strong>una sola vez</strong> a 44,1 kHz con remuestreo de calidad VHQ y se guarda en FLAC de 24 bits. Todo lo que viene después lee de aquí, así que la pérdida de calidad ocurre como máximo una vez.<span class="what">→ mix.flac (PCM_24)</span></td>
+          </tr>
+          <tr>
+            <td class="mono">analyze</td>
+            <td class="who"><span class="tag py">Py</span></td>
+            <td>BPM y tonalidad sobre la mezcla completa. Es lo que ves en la tarjeta a los pocos segundos.<span class="what">→ bpm, key, confianza</span></td>
+          </tr>
+          <tr>
+            <td class="mono">separate</td>
+            <td class="who"><span class="tag py">Py</span></td>
+            <td>Uno o dos modelos según el preset. La parte lenta: minutos, y la GPU al completo.<span class="what">→ vocals · drums · bass · other .flac</span></td>
+          </tr>
+          <tr>
+            <td class="mono">refinado</td>
+            <td class="who"><span class="tag py">Py</span></td>
+            <td>Se repite el análisis, pero ahora sobre los stems: el BPM se mide en la batería sola y la tonalidad en bajo + armonía, sin voz que estorbe.<span class="what">→ sustituye al análisis del mix</span></td>
+          </tr>
+          <tr>
+            <td class="mono">null test</td>
+            <td class="who"><span class="tag py">Py</span></td>
+            <td>Se suman los cuatro stems y se resta la mezcla original. Control de calidad gratis.<span class="what">→ residual en dB</span></td>
+          </tr>
+          <tr>
+            <td class="mono">descarga</td>
+            <td class="who"><span class="tag ts">TS</span></td>
+            <td>Marcas los stems que quieras y eliges FLAC, WAV de 24 bits o MP3 320. Si marcas más de uno sale un zip, porque el navegador bloquea varias descargas programáticas seguidas.<span class="what">→ un archivo, o stems.zip</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>El progreso viaja de vuelta por <code>EventSource</code>. Es un flujo de un solo sentido —el servidor habla, el cliente escucha— así que un WebSocket sería montar un canal bidireccional para no usar la mitad, y hacer <em>polling</em> sería preguntar cien veces para que la respuesta cambie dos.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">03 · el stack</p>
+      <h2>Qué hace cada librería</h2>
+    </header>
+    <p>Las capas tienen la misma forma que en web: un runtime que no sabe nada del dominio, un orquestador que sí, una caja de algoritmos, un tipo de dato que todos hablan, y un binario externo al final de la cadena.</p>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Capa</th><th>Aquí</th><th>El equivalente mental</th></tr></thead>
+        <tbody>
+          <tr><td>runtime de cálculo</td><td class="mono">torch 2.14+cu126</td><td>V8: no sabe nada de tu dominio</td></tr>
+          <tr><td>orquestador del dominio</td><td class="mono">audio-separator 0.48</td><td>un framework: sabe el flujo</td></tr>
+          <tr><td>pesos del modelo</td><td class="mono">.ckpt · .th</td><td>datos, no código</td></tr>
+          <tr><td>caja de algoritmos</td><td class="mono">librosa 1.0</td><td>lodash: funciones sin estado</td></tr>
+          <tr><td>tipo de dato común</td><td class="mono">numpy 2.5</td><td><code>Buffer</code>: todos hablan esto</td></tr>
+          <tr><td>entrada y salida</td><td class="mono">soundfile 0.14</td><td>bindings a una librería de C</td></tr>
+          <tr><td>una sola tarea</td><td class="mono">soxr 1.1</td><td>un micro-paquete que hace una cosa</td></tr>
+          <tr><td>binario externo</td><td class="mono">ffmpeg</td><td>un <code>.exe</code>, no un <code>import</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>torch es el runtime, no el modelo</h3>
+    <p>PyTorch no sabe lo que es una canción. Da tres cosas: un tipo de array n-dimensional, las operaciones sobre él, y la capacidad de ejecutar esas operaciones en la GPU. El <code>+cu126</code> de la versión es lo importante: ese paquete trae dentro sus propios kernels compilados de CUDA 12.6, no usa el que tengas en el sistema. Por eso pesa lo que pesa, y por eso se eligió la versión 12 y no la 13: <code>onnxruntime</code> se compila contra CUDA 12 y mezclar dos runtimes en un mismo proceso da problemas.</p>
+    <p>Un modelo, en este mundo, son dos cosas separadas: una clase de Python que describe la arquitectura, y un archivo de números que son los pesos aprendidos. Torch solo da las piezas para escribir la primera.</p>
+
+    <h3>Un checkpoint son datos, y trae su receta</h3>
+    <p>Lo descargado son dos modelos y dos recetas: cuatro archivos de 81 MB más un YAML de 149 bytes para htdemucs_ft, y un único archivo de 610 MB más su YAML para BS-RoFormer. El YAML de htdemucs_ft cabe en una pantalla y explica de golpe por qué este modelo es cuatro veces más lento que el htdemucs normal: es una matriz identidad.</p>
+
+    <figure>
+      <svg viewBox="0 0 672 220" role="img" aria-label="Diagrama: el archivo de receta htdemucs_ft.yaml nombra cuatro archivos de pesos de 81 MB, y cada uno de esos cuatro modelos produce exactamente un stem.">
+        <defs>
+          <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+          </marker>
+        </defs>
+
+        <text x="0" y="18" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="0.1em" fill="var(--muted)">HTDEMUCS_FT NO ES UN MODELO: SON CUATRO ESPECIALISTAS</text>
+
+        <rect x="1" y="91" width="146" height="52" rx="7" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"></rect>
+        <text x="74" y="112" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">htdemucs_ft.yaml</text>
+        <text x="74" y="129" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--muted)" text-anchor="middle">149 bytes · la receta</text>
+
+        <line x1="151" y1="117" x2="181" y2="117" stroke="currentColor" stroke-width="1.5" marker-end="url(#a4)"></line>
+        <line x1="188" y1="51" x2="188" y2="183" stroke="var(--line)" stroke-width="1.5"></line>
+        <g stroke="var(--line)" stroke-width="1.5">
+          <line x1="188" y1="51" x2="196" y2="51"></line>
+          <line x1="188" y1="95" x2="196" y2="95"></line>
+          <line x1="188" y1="139" x2="196" y2="139"></line>
+          <line x1="188" y1="183" x2="196" y2="183"></line>
+        </g>
+
+        <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+          <rect x="196" y="34" width="168" height="34" rx="6"></rect>
+          <rect x="196" y="78" width="168" height="34" rx="6"></rect>
+          <rect x="196" y="122" width="168" height="34" rx="6"></rect>
+          <rect x="196" y="166" width="168" height="34" rx="6"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">
+          <text x="280" y="55">f7e0c4bc · 81 MB</text>
+          <text x="280" y="99">d12395a8 · 81 MB</text>
+          <text x="280" y="143">92cfc3b6 · 81 MB</text>
+          <text x="280" y="187">04573f0d · 81 MB</text>
+        </g>
+
+        <g stroke="currentColor" stroke-width="1.5" marker-end="url(#a4)">
+          <line x1="368" y1="51" x2="464" y2="51"></line>
+          <line x1="368" y1="95" x2="464" y2="95"></line>
+          <line x1="368" y1="139" x2="464" y2="139"></line>
+          <line x1="368" y1="183" x2="464" y2="183"></line>
+        </g>
+
+        <g stroke-width="1.5" fill-opacity="0.14">
+          <rect x="470" y="34" width="190" height="34" rx="6" fill="var(--vocals)" stroke="var(--vocals)"></rect>
+          <rect x="470" y="78" width="190" height="34" rx="6" fill="var(--drums)" stroke="var(--drums)"></rect>
+          <rect x="470" y="122" width="190" height="34" rx="6" fill="var(--bass)" stroke="var(--bass)"></rect>
+          <rect x="470" y="166" width="190" height="34" rx="6" fill="var(--other)" stroke="var(--other)"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">
+          <text x="565" y="55">vocals</text>
+          <text x="565" y="99">drums</text>
+          <text x="565" y="143">bass</text>
+          <text x="565" y="187">other</text>
+        </g>
+      </svg>
+      <figcaption>La matriz de pesos de la receta es la identidad: cada archivo contribuye a exactamente un stem y a ninguno más. Pasar la canción por htdemucs_ft es pasarla cuatro veces, una por especialista. Eso es el «ft» de <em>fine-tuned</em>, y es de dónde sale su coste.</figcaption>
+    </figure>
+
+    <p>La receta del otro modelo trae sus hiperparámetros, y dos valores de ahí explican decisiones del código. <code>num_stems: 1</code> significa que ese checkpoint produce <strong>una sola pista</strong>, la voz: el «instrumental» que usa la cascada no lo genera el modelo, sale de restar la voz a la mezcla. Es un subproducto, y por eso el código que lo recoge es defensivo con su nombre.</p>
+
+    <h3>Por qué una canción se trocea</h3>
+    <p>El otro valor es <code>chunk_size: 352800</code>, que a 44 100 muestras por segundo son ocho segundos exactos. Esa es toda la ventana que el modelo ve de una vez. Una canción de cuatro minutos no entra en un transformer de golpe ni cabría en 8 GB de memoria de vídeo, así que se parte, se procesa trozo a trozo y se vuelve a pegar.</p>
+
+    <figure>
+      <svg viewBox="0 0 672 186" role="img" aria-label="Diagrama: la canción completa se recorre con ventanas de ocho segundos que se solapan un 25 por ciento entre sí, y las costuras se promedian.">
+        <text x="0" y="16" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--muted)">la canción entera · 4 minutos · 10,6 millones de muestras</text>
+        <rect x="1" y="26" width="670" height="26" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"></rect>
+
+        <text x="0" y="78" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)">lo que el modelo ve de una vez: <tspan font-weight="500">chunk_size 352800 = 8 s</tspan></text>
+
+        <g stroke-width="1.5" fill="var(--bass)" fill-opacity="0.16" stroke="var(--bass)">
+          <rect x="1" y="90" width="132" height="26" rx="5"></rect>
+          <rect x="201" y="90" width="132" height="26" rx="5"></rect>
+          <rect x="401" y="90" width="132" height="26" rx="5"></rect>
+        </g>
+        <g stroke-width="1.5" fill="var(--other)" fill-opacity="0.16" stroke="var(--other)">
+          <rect x="101" y="122" width="132" height="26" rx="5"></rect>
+          <rect x="301" y="122" width="132" height="26" rx="5"></rect>
+          <rect x="501" y="122" width="132" height="26" rx="5"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--fg)" text-anchor="middle">
+          <text x="67" y="107">8 s</text>
+          <text x="267" y="107">8 s</text>
+          <text x="467" y="107">8 s</text>
+          <text x="167" y="139">8 s</text>
+          <text x="367" y="139">8 s</text>
+          <text x="567" y="139">8 s</text>
+        </g>
+        <text x="645" y="107" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--muted)">…</text>
+
+        <text x="0" y="174" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">overlap 0.25 · cada costura cae dentro de dos ventanas y se promedia, para que no se oiga el corte</text>
+      </svg>
+      <figcaption>El desplazamiento entre filas es el solape. <code>shifts=2</code> hace todavía otra pasada completa con un desfase temporal distinto y promedia las dos: unas décimas de dB a cambio del doble de tiempo.</figcaption>
+    </figure>
+
+    <h3>audio-separator es lo que ahorra el trabajo de verdad</h3>
+    <p>Es la librería que justifica haber elegido Python, y hace cuatro cosas tediosas y fáciles de hacer mal. Mantiene un catálogo que traduce un nombre como <code>htdemucs_ft</code> a una URL, una arquitectura y una receta. Implementa el bucle de inferencia de cada familia de modelos, que son distintos entre sí. Resuelve el troceado y el pegado del dibujo de arriba. Y escribe los archivos de salida.</p>
+    <p>En ese último paso está el parámetro que nos mordió. <code>normalization_threshold</code> vale 0,9 por defecto, y lo que hace al escribir es <code>if maxv &gt; 0.9: wave *= 0.9/maxv</code>: le aplica a cada stem una ganancia <strong>distinta</strong>, calculada sobre su propio pico. Eso rompe el balance relativo entre las cuatro pistas y arruina el null test. Está puesto a 1,0, que solo evita el recorte al escribir en entero.</p>
+    <p>Sin esta librería el trabajo era leer los repositorios de Demucs y de BS-RoFormer y reimplementar sus dos bucles de inferencia.</p>
+
+    <h3>librosa no tiene una red neuronal dentro</h3>
+    <p>Aquí no hay nada aprendido: son algoritmos de procesado de señal bien implementados sobre numpy y scipy. Se usan cuatro. <code>stft</code> pasa de forma de onda a espectrograma. <code>chroma_cqt</code> pliega el espectro en las doce notas de la escala sumando octavas, y es la entrada del detector de tonalidad. <code>onset_strength</code> mide dónde empiezan los sonidos. <code>beat_track</code> estima el pulso. Todo en CPU, segundos y no minutos, que es la razón de que el análisis vaya antes de la separación.</p>
+    <p>Las otras dos piezas pequeñas tienen una tarea cada una. <strong>soundfile</strong> son bindings a <code>libsndfile</code>, una librería de C que lleva décadas leyendo WAV, FLAC y OGG; su parámetro <code>subtype</code> es la codificación en disco, y por eso FLAC acepta <code>PCM_24</code> y revienta con <code>FLOAT</code>. <strong>soxr</strong> solo cambia la frecuencia de muestreo, que parece trivial y no lo es: hacerlo mal mete <em>aliasing</em>, que se oye como un siseo metálico en los agudos.</p>
+
+    <h3>Y las que están sin que las queramos</h3>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Paquete</th><th>Por qué está instalado</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">onnxruntime</td><td>audio-separator lo importa sin condición, para los modelos MDX-Net en formato ONNX que no usamos</td></tr>
+          <tr><td class="mono">audioread</td><td>dependencia no declarada de audio-separator 0.48, que la importa directamente; librosa 1.0 ya no la arrastra</td></tr>
+          <tr><td class="mono">pydub</td><td>se esquiva con <code>use_soundfile=True</code>, pero viene puesto</td></tr>
+          <tr><td class="mono">einops</td><td>un lenguaje para reordenar tensores, que usa la arquitectura del RoFormer</td></tr>
+          <tr><td class="mono">rotary-embedding-torch</td><td>la codificación posicional RoPE: es literalmente la «Ro» de RoFormer</td></tr>
+          <tr><td class="mono">julius</td><td>procesado de señal sobre torch, del mismo autor que Demucs</td></tr>
+          <tr><td class="mono">numba · scipy</td><td>el motor numérico debajo de librosa</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Lo que hay que interiorizar viniendo de npm: en Python <strong>no existen las <em>peer dependencies</em> ni los imports opcionales por defecto</strong>. Un paquete importa lo que importa al cargarse, así que una dependencia que tu caso de uso no toca igual te obliga a instalarla, y el fallo es un <code>ModuleNotFoundError</code> en el arranque, no un aviso. La otra diferencia estructural es que no hay un <code>node_modules</code> por proyecto: un entorno virtual es una carpeta con un intérprete y sus paquetes, y vive donde tú decidas. El de aquí está en <code>~/.venvs/stemtool</code>, fuera del proyecto, y el servidor lo encuentra por convención con una variable de entorno como escape.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">04 · los modelos</p>
+      <h2>Dos presets, y la cascada</h2>
+    </header>
+    <p>El preset rápido manda la mezcla a un solo modelo y recoge cuatro pistas. El de máxima calidad hace algo menos obvio: usa un modelo para sacar la voz y <em>otro distinto</em> para partir lo que queda.</p>
+
+    <figure>
+      <svg viewBox="0 0 720 340" role="img" aria-label="Diagrama comparando los dos presets: el rápido pasa la mezcla por htdemucs_ft y obtiene los cuatro stems; el de máxima calidad pasa la mezcla por BS-RoFormer para obtener la voz y un instrumental, y luego pasa ese instrumental por htdemucs_ft para obtener batería, bajo y resto.">
+        <defs>
+          <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+          </marker>
+        </defs>
+
+        <!-- preset rapido -->
+        <text x="0" y="20" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="0.1em" fill="var(--muted)">PRESET RÁPIDO · UNA PASADA</text>
+
+        <rect x="1" y="34" width="90" height="36" rx="6" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"></rect>
+        <text x="46" y="57" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--fg)" text-anchor="middle">mix.flac</text>
+
+        <line x1="95" y1="52" x2="121" y2="52" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"></line>
+
+        <rect x="126" y="34" width="146" height="36" rx="6" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"></rect>
+        <text x="199" y="57" font-family="IBM Plex Mono, monospace" font-size="11.5" font-weight="500" fill="var(--fg)" text-anchor="middle">htdemucs_ft</text>
+
+        <line x1="276" y1="52" x2="302" y2="52" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"></line>
+
+        <g stroke-width="1.5" fill-opacity="0.14">
+          <rect x="307" y="31" width="110" height="26" rx="5" fill="var(--vocals)" stroke="var(--vocals)"></rect>
+          <rect x="423" y="31" width="110" height="26" rx="5" fill="var(--drums)" stroke="var(--drums)"></rect>
+          <rect x="307" y="63" width="110" height="26" rx="5" fill="var(--bass)" stroke="var(--bass)"></rect>
+          <rect x="423" y="63" width="110" height="26" rx="5" fill="var(--other)" stroke="var(--other)"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">
+          <text x="362" y="48">vocals</text>
+          <text x="478" y="48">drums</text>
+          <text x="362" y="80">bass</text>
+          <text x="478" y="80">other</text>
+        </g>
+
+        <line x1="0" y1="116" x2="720" y2="116" stroke="var(--line)" stroke-width="1.5"></line>
+
+        <!-- preset max -->
+        <text x="0" y="144" font-family="IBM Plex Mono, monospace" font-size="10" letter-spacing="0.1em" fill="var(--muted)">PRESET MÁXIMA CALIDAD · CASCADA</text>
+
+        <rect x="1" y="158" width="90" height="36" rx="6" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"></rect>
+        <text x="46" y="181" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--fg)" text-anchor="middle">mix.flac</text>
+
+        <line x1="95" y1="176" x2="121" y2="176" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"></line>
+
+        <rect x="126" y="158" width="146" height="36" rx="6" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"></rect>
+        <text x="199" y="176" font-family="IBM Plex Mono, monospace" font-size="11.5" font-weight="500" fill="var(--fg)" text-anchor="middle">BS-RoFormer</text>
+        <text x="199" y="189" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)" text-anchor="middle">SDR 12.97</text>
+
+        <line x1="276" y1="176" x2="302" y2="176" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"></line>
+
+        <rect x="307" y="150" width="124" height="26" rx="5" fill="var(--vocals)" fill-opacity="0.14" stroke="var(--vocals)" stroke-width="1.5"></rect>
+        <text x="369" y="167" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">vocals</text>
+
+        <rect x="307" y="184" width="124" height="26" rx="5" fill="var(--surface)" stroke="var(--line)" stroke-width="1.5"></rect>
+        <text x="369" y="201" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--muted)" text-anchor="middle">instrumental</text>
+
+        <line x1="369" y1="214" x2="369" y2="248" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"></line>
+        <text x="379" y="236" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--muted)">la mezcla sin voz</text>
+
+        <rect x="296" y="252" width="146" height="36" rx="6" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"></rect>
+        <text x="369" y="275" font-family="IBM Plex Mono, monospace" font-size="11.5" font-weight="500" fill="var(--fg)" text-anchor="middle">htdemucs_ft</text>
+
+        <line x1="446" y1="270" x2="472" y2="270" stroke="currentColor" stroke-width="1.5" marker-end="url(#a2)"></line>
+
+        <g stroke-width="1.5" fill-opacity="0.14">
+          <rect x="477" y="234" width="110" height="24" rx="5" fill="var(--drums)" stroke="var(--drums)"></rect>
+          <rect x="477" y="262" width="110" height="24" rx="5" fill="var(--bass)" stroke="var(--bass)"></rect>
+          <rect x="477" y="290" width="110" height="24" rx="5" fill="var(--other)" stroke="var(--other)"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">
+          <text x="532" y="250">drums</text>
+          <text x="532" y="278">bass</text>
+          <text x="532" y="306">other</text>
+        </g>
+      </svg>
+      <figcaption>La diferencia es un salto extra y un cambio de origen para la voz. BS-RoFormer trabaja en bandas mel, que modelan la voz mejor que nadie pero el bajo bastante peor; Demucs es lo contrario. Encadenarlos pone cada modelo donde gana, en vez de pedirle a uno solo que sea bueno en todo.</figcaption>
+    </figure>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">05 · el análisis</p>
+      <h2>BPM y tonalidad</h2>
+    </header>
+    <p>Los dos son estimaciones con un error característico, y el código está construido alrededor de ese error concreto en cada caso.</p>
+
+    <h3>BPM: el error es la octava</h3>
+    <p>Un detector que se equivoca casi nunca da 137 cuando son 120: da 60 o 240. Confundir el pulso con su mitad o su doble es el fallo dominante. Así que no se coge el candidato más fuerte: se generan los múltiplos y divisores plausibles, se pliegan al rango de 65 a 190, y cada uno se puntúa multiplicando la evidencia de autocorrelación por una curva de probabilidad centrada en 120 pulsaciones. Gana el que tenga buena señal <em>y</em> sea un tempo que la música real usa.</p>
+
+    <h3>Tonalidad: el perfil importa más que el algoritmo</h3>
+    <p>Se compara el reparto de energía entre las doce notas con un perfil de cada tonalidad posible y gana la correlación más alta. La trampa está en qué perfil: los clásicos de Krumhansl-Kessler vienen de experimentos de laboratorio sobre la menor natural, y penalizan el séptimo grado elevado que usa prácticamente toda la música menor en su acorde dominante. Con esos perfiles, una progresión en La menor con un acorde de Mi mayor se clasifica como La <em>mayor</em>: tónica correcta, modo equivocado. Los perfiles de Temperley, sacados de un corpus de partituras reales, le dan al séptimo elevado un peso de 0,330 contra 0,133; con ellos la pieza de prueba acierta y el margen de confianza sube de 0,013 a 0,108.</p>
+
+    <div class="note">
+      <h3>Por qué merece la pena repetir el análisis</h3>
+      <p>Una vez separada la canción, el BPM se mide sobre la batería sola y la tonalidad sobre bajo más armonía. Es el mismo código con mejor materia prima: nada de percusión contaminando el cromagrama, nada de voz desafinando el perfil. En la pieza de prueba la confianza del BPM pasa de 0,848 sobre la mezcla a 0,873 sobre el stem de batería, y el resultado refinado es el que sustituye al primero en la tarjeta.</p>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">06 · el reproductor</p>
+      <h2>Cuatro pistas que no se desincronizan</h2>
+    </header>
+    <p>Esto es lo único de la interfaz que no podía resolverse con HTML. Cuatro etiquetas <code>&lt;audio&gt;</code> arrancadas en el mismo <em>tick</em> derivan entre sí en milisegundos, y unos pocos milisegundos de desfase entre batería y bajo se oyen como un <em>flam</em>. La API de Web Audio programa el arranque contra el reloj de la tarjeta de sonido, no contra el de JavaScript.</p>
+
+    <figure>
+      <svg viewBox="0 0 720 240" role="img" aria-label="Diagrama del grafo de Web Audio: cuatro nodos AudioBufferSourceNode, uno por stem, cada uno con su GainNode, convergiendo en la salida; los cuatro arrancan en el mismo instante del reloj de audio.">
+        <defs>
+          <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+            <polygon points="0,1 10,5 0,9" fill="currentColor"></polygon>
+          </marker>
+        </defs>
+
+        <text x="0" y="20" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--muted)">los cuatro con el mismo <tspan font-weight="500" fill="var(--fg)">start(ctx.currentTime + 0.06)</tspan></text>
+
+        <!-- sources -->
+        <g stroke-width="1.5" fill-opacity="0.14">
+          <rect x="1" y="38" width="186" height="32" rx="6" fill="var(--vocals)" stroke="var(--vocals)"></rect>
+          <rect x="1" y="76" width="186" height="32" rx="6" fill="var(--drums)" stroke="var(--drums)"></rect>
+          <rect x="1" y="114" width="186" height="32" rx="6" fill="var(--bass)" stroke="var(--bass)"></rect>
+          <rect x="1" y="152" width="186" height="32" rx="6" fill="var(--other)" stroke="var(--other)"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)">
+          <text x="14" y="58">BufferSource · vocals</text>
+          <text x="14" y="96">BufferSource · drums</text>
+          <text x="14" y="134">BufferSource · bass</text>
+          <text x="14" y="172">BufferSource · other</text>
+        </g>
+
+        <!-- source -> gain -->
+        <g stroke="currentColor" stroke-width="1.5" marker-end="url(#a3)">
+          <line x1="191" y1="54" x2="215" y2="54"></line>
+          <line x1="191" y1="92" x2="215" y2="92"></line>
+          <line x1="191" y1="130" x2="215" y2="130"></line>
+          <line x1="191" y1="168" x2="215" y2="168"></line>
+        </g>
+
+        <!-- gains -->
+        <g fill="var(--surface)" stroke="var(--line)" stroke-width="1.5">
+          <rect x="220" y="38" width="118" height="32" rx="6"></rect>
+          <rect x="220" y="76" width="118" height="32" rx="6"></rect>
+          <rect x="220" y="114" width="118" height="32" rx="6"></rect>
+          <rect x="220" y="152" width="118" height="32" rx="6"></rect>
+        </g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="var(--fg)" text-anchor="middle">
+          <text x="279" y="58">GainNode</text>
+          <text x="279" y="96">GainNode</text>
+          <text x="279" y="134">GainNode</text>
+          <text x="279" y="172">GainNode</text>
+        </g>
+        <text x="220" y="208" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">solo y mute viven aquí · rampa de 10 ms</text>
+
+        <!-- converge -->
+        <g stroke="currentColor" stroke-width="1.5" fill="none" marker-end="url(#a3)">
+          <path d="M342 54 C 390 54, 400 111, 444 111"></path>
+          <path d="M342 92 C 390 92, 400 111, 444 111"></path>
+          <path d="M342 130 C 390 130, 400 111, 444 111"></path>
+          <path d="M342 168 C 390 168, 400 111, 444 111"></path>
+        </g>
+
+        <rect x="449" y="80" width="150" height="62" rx="8" fill="var(--surface)" stroke="currentColor" stroke-width="1.8"></rect>
+        <text x="524" y="107" font-family="Archivo, sans-serif" font-size="12.5" font-weight="600" fill="var(--fg)" text-anchor="middle">destination</text>
+        <text x="524" y="126" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="var(--muted)" text-anchor="middle">tus altavoces</text>
+
+        <text x="619" y="107" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">reloj de la</text>
+        <text x="619" y="121" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">tarjeta, no</text>
+        <text x="619" y="135" font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">de JS</text>
+      </svg>
+      <figcaption>Los cuatro stems se descargan y decodifican en paralelo la primera vez que le das al play, y a partir de ahí todo arranque fija el mismo instante futuro para los cuatro: la sincronía es exacta a nivel de muestra. El silenciar y el aislar se hacen bajando la ganancia con una rampa de 10 ms en vez de un corte seco, porque un salto instantáneo de volumen suena como un chasquido.</figcaption>
+    </figure>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">07 · el control</p>
+      <h2>El null test</h2>
+    </header>
+    <p>Si los cuatro stems son de verdad las partes de la mezcla, sumarlos debería devolver la mezcla. Se suman, se resta el original y se mide lo que sobra. Lo que queda es energía que se perdió o se duplicó por el camino, y es una medida objetiva que no cuesta nada calcular.</p>
+
+    <ul class="stats">
+      <li>
+        <span class="k">preset rápido</span>
+        <span class="v">−32,6 dB</span>
+        <span class="n">htdemucs_ft</span>
+      </li>
+      <li>
+        <span class="k">máxima calidad</span>
+        <span class="v">−31,6 dB</span>
+        <span class="n">roformer → htdemucs_ft</span>
+      </li>
+    </ul>
+    <p>Cuanto más negativo, mejor. No es la misma cosa que el SDR: el null test no dice si la voz quedó limpia, dice si la contabilidad cuadra. Un valor cerca de cero significaría que algo se está perdiendo o sonando dos veces, y eso se detecta sin escuchar nada.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">08 · los archivos</p>
+      <h2>Cómo se organiza un proyecto así</h2>
+    </header>
+    <p>El criterio de reparto no es por tipo de archivo ni por capa lógica: es <strong>por dónde corre el código</strong>.</p>
+
+    <pre class="tree"><b>types.ts</b>              <i>EL CONTRATO. Lo único que importan los dos lados.</i>
+package.json          <i>2 devDependencies, 0 de runtime</i>
+tsconfig.json         <i>objetivo navegador, SÍ emite → web/dist/</i>
+tsconfig.server.json  <i>objetivo node, noEmit (solo comprueba tipos)</i>
+
+<b>server/</b>
+  index.ts            <i>rutas HTTP, SSE, estáticos, descargas</i>
+  queue.ts            <i>estado de los jobs, persistencia, uno a la vez</i>
+  worker.ts           <i>el puente al proceso de Python</i>
+
+<b>web/</b>
+  index.html          <i>una página, el CSS dentro</i>
+  app.ts              <i>interfaz y reproductor de Web Audio</i>
+  dist/               <i>compilado (generado)</i>
+
+<b>py/</b>
+  worker.py           <i>ÚNICO punto de entrada. Protocolo y despacho.</i>
+  analyze.py          <i>BPM y tonalidad. Módulo puro.</i>
+  separate.py         <i>los modelos. Módulo puro.</i>
+  check_env.py        <i>script de dev: verifica el entorno</i>
+  make_test_audio.py  <i>script de dev: genera el fixture</i>
+
+<b>fixture/</b>              <i>16 s sintéticos con respuesta conocida</i>
+<b>data/</b>                 <i>estado en runtime · 731 MB ahora mismo</i>
+~/.cache/stemtool-models/   <i>931 MB de checkpoints, FUERA del proyecto</i></pre>
+
+    <h3>Una carpeta por frontera de ejecución</h3>
+    <p><code>web/</code> es lo que ejecuta el navegador, <code>server/</code> lo que ejecuta Node, <code>py/</code> lo que ejecuta el intérprete de Python. Son tres procesos con tres entornos distintos, y meterlos en un <code>src/</code> común te obliga a recordar de memoria qué puede importar qué. La prueba de que la frontera está bien puesta: <code>py/</code> no tiene una línea que mencione HTTP, y <code>server/</code> no tiene una que mencione una convolución.</p>
+
+    <h3>El contrato compartido va en la raíz</h3>
+    <p><code>types.ts</code> está arriba, al mismo nivel que las tres carpetas, porque no pertenece a ninguna. Si lo metes dentro de <code>server/</code>, la interfaz importa hacia dentro de la carpeta del servidor y la dirección de la dependencia miente: sugiere que la interfaz depende del servidor, cuando los dos dependen del mismo acuerdo.</p>
+
+    <h3>El estado de runtime nunca vive en carpetas de código</h3>
+    <p>Hay 731 MB en <code>data/</code> y 931 MB más en el caché de modelos, y ninguna de las dos cosas es código fuente. La distinción entre ellas es la que decide dónde van: <code>data/</code> es <strong>salida reproducible</strong> —si la borras pierdes tiempo de GPU y nada más—, mientras que el caché de modelos es <strong>entrada descargable</strong>, se comparte entre todas las copias del proyecto y sería absurdo volver a bajarlo al clonar en otra carpeta. Eso último hay que forzarlo: el valor por defecto de la librería es <code>/tmp</code>, que en Windows no sirve de nada.</p>
+
+    <h3>Un punto de entrada, y el resto módulos puros</h3>
+    <p>Solo <code>worker.py</code> sabe que existe un protocolo. <code>analyze.py</code> y <code>separate.py</code> reciben rutas y devuelven diccionarios; no saben quién los llama. No es purismo, tiene dos efectos prácticos: se pueden ejecutar solos (<code>python analyze.py</code> corre su propio autochequeo contra el fixture, sin levantar nada), y los imports pesados se cargan tarde, así que el modo de un solo disparo —el zip, la conversión de formatos— arranca en dos segundos en vez de esperar a que cargue torch.</p>
+
+    <h3>Los scripts de desarrollo, junto al código que verifican</h3>
+    <p><code>check_env.py</code> no es la aplicación, pero tampoco merece una carpeta aparte siendo dos archivos. Y fue lo que hizo tratable el proyecto: comprueba torch, CUDA, los imports de la librería y un ciclo de lectura y escritura de audio <em>antes</em> de que exista código de aplicación. Las tres primeras cosas que fallaron aquí fueron de entorno y no de lógica; ese script las cazó en vez de dejarlas disfrazarse de bug.</p>
+
+    <div class="note">
+      <h3>La regla que de verdad decide la salud del proyecto</h3>
+      <p>Lo estrecho que sea el protocolo entre el lado de plomería y el lado de cálculo. El de aquí tiene cuatro verbos, y cada uno recibe rutas de archivo y devuelve un diccionario:</p>
+      <pre class="verbs">prepare · analyze · analyze_stems · separate</pre>
+      <p>Mientras esa lista no crezca, el sidecar sigue siendo una función. El día que aparezca un <code>get_job_status</code> o un <code>list_jobs</code>, la lógica de aplicación se habrá filtrado al lado equivocado y los dos procesos dejarán de poder razonarse por separado.</p>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">09 · lo que costó</p>
+      <h2>Dos trampas de la librería</h2>
+    </header>
+    <p>Las dos se manifestaron como un «archivo no encontrado» que apuntaba al sitio equivocado, y entre las dos se llevaron la mayor parte del tiempo de depuración.</p>
+
+    <div class="traps">
+      <div class="trap">
+        <h3>Los nombres devueltos son relativos</h3>
+        <p><code>separate()</code> devuelve <code>s_vocals.flac</code>, no una ruta. Al mover los archivos se buscaban en el directorio de trabajo y saltaba un error del sistema que parecía un <code>ffmpeg</code> mal instalado. Me mandó a investigar el PATH de Windows cuando la separación llevaba funcionando desde el primer intento.</p>
+      </div>
+      <div class="trap">
+        <h3>El directorio de salida se fija al construir</h3>
+        <p>El objeto separador se crea una sola vez y se reutiliza entre canciones, justamente para no recargar los checkpoints. Pero su directorio de salida se lee en el constructor y nunca más: darle un directorio temporal por canción hacía que, desde la segunda, el modelo siguiera escribiendo en el de la primera. El síntoma es desconcertante, porque las rutas que devuelve existen y los archivos no están ahí. Ahora hay un único directorio de trabajo por proceso que se vacía entre canciones.</p>
+      </div>
+    </div>
+
+    <p>Como las dos vivían en el paso de una canción a la siguiente, la prueba de regresión no es cada preset por separado: son los dos encolados seguidos en el mismo proceso.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <header>
+      <p class="eyebrow">10 · el límite</p>
+      <h2>Lo que no está comprobado</h2>
+    </header>
+    <p>La calidad de la separación. La pieza de prueba es sintética: 16 segundos a 120 pulsaciones exactas en La menor, con los cuatro stems de referencia generados por separado antes de mezclarlos. Eso permite verificar que el BPM y la tonalidad aciertan contra una respuesta conocida, y que los stems de salida suman la mezcla de entrada. Lo que no dice es cómo suena una voz real extraída de una mezcla real, con reverberación, compresión y un coro doblado. Eso solo se comprueba de una manera: con una canción de verdad, escuchándola.</p>
+  </section>
+
+</div>
