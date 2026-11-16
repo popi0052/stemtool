@@ -42,36 +42,66 @@ def _fold(bpm):
 
 
 def estimate_bpm(y, sr=SR):
-    """Tempo con guarda de octava: el fallo dominante es el doble/mitad.
+    """Tempo en dos pasos: elegir el nivel metrico y despues afinarlo.
 
-    librosa da un candidato; se generan sus octavas y variantes de tresillo,
-    y se elige la que mejor explica la envolvente de onsets, pesada por un
-    prior log-normal centrado en 120 BPM.
+    El fallo dominante no es fallar el pulso, es acertarlo y contarlo al
+    doble, a la mitad o a dos tercios. librosa propone un candidato; aqui se
+    generan sus octavas y variantes de tresillo y se elige la que mas energia
+    tiene de verdad en la cancion.
     """
     onset = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
     raw = librosa.beat.beat_track(onset_envelope=onset, sr=sr,
                                   hop_length=HOP)[0]
     raw = float(np.atleast_1d(raw)[0])
 
-    ac = librosa.autocorrelate(onset, max_size=len(onset) // 2)
-    ac = ac / (ac[0] + 1e-9)
-    lags = np.arange(len(ac))
+    # Tempograma: autocorrelacion de la envolvente ventana a ventana, o sea
+    # cuanta energia hay EN cada periodo de pulso.
+    #
+    # Antes se usaba la autocorrelacion global medida en el periodo y en sus
+    # multiplos (x1, x2, x4), y eso premia sistematicamente a los tempos
+    # lentos: los multiplos de un pulso lento caen en el compas y en la frase,
+    # que en musica de loop son periodicos de sobra. El candidato lento cobraba
+    # una prima que el rapido no tenia como cobrar.
+    tg = librosa.feature.tempogram(onset_envelope=onset, sr=sr, hop_length=HOP)
+    strength = tg.mean(axis=1)
+    lags = np.arange(len(strength))
 
     def evidence(bpm):
-        """Autocorrelacion en el periodo del pulso y sus multiplos."""
-        beat_lag = 60.0 / bpm * sr / HOP
-        return float(np.mean([np.interp(beat_lag * m, lags, ac)
-                              for m in (1, 2, 4)]))
+        return float(np.interp(60.0 / bpm * sr / HOP, lags, strength))
 
+    # Prior ancho (una octava de sigma): desempata entre candidatos parejos y
+    # nada mas. Con el anterior (0.6) la cercania a 120 pesaba mas que la
+    # evidencia, y un trap de 170 salia a 113 -- que es 170*2/3, un pulso que
+    # no toca nadie en la cancion.
     def prior(bpm):
-        return float(np.exp(-0.5 * (np.log2(bpm / 120.0) / 0.6) ** 2))
+        return float(np.exp(-0.5 * (np.log2(bpm / 120.0) / 1.0) ** 2))
 
     cands = {round(_fold(raw * r), 3)
              for r in (1 / 3, 1 / 2, 2 / 3, 1.0, 3 / 2, 2.0, 3.0)}
     scored = sorted(((evidence(b) * prior(b), b) for b in cands), reverse=True)
-    best_score, best = scored[0]
+    best_score, level = scored[0]
+
+    bpm, offset = level, 0.0
+    beats = librosa.beat.beat_track(onset_envelope=onset, sr=sr,
+                                    hop_length=HOP, start_bpm=level,
+                                    trim=False)[1]
+    if len(beats) >= 8:
+        # Recta sobre los tiempos de los beats: la pendiente promedia cientos
+        # de pulsos, asi que el decimal del BPM significa algo (el nivel solo
+        # tiene la resolucion del frame). El corte da la fase, que es lo que
+        # necesita el metronomo para no entrar a destiempo.
+        t = librosa.frames_to_time(beats, sr=sr, hop_length=HOP)
+        slope, intercept = np.polyfit(np.arange(len(t)), t, 1)
+        # Si la recta se aleja mas de un 5% del nivel elegido no es un
+        # afinado, es una cancion que cambia de tempo: mejor el nivel pelado.
+        if slope > 0 and abs(60.0 / slope - level) < level * 0.05:
+            bpm = 60.0 / slope
+            offset = float(intercept % slope)
     return {
-        "bpm": round(best, 1),
+        "bpm": round(bpm, 1),
+        # Tiempo del primer beat dentro del compas, en segundos. Sin esto el
+        # metronomo clava el tempo pero entra a contratiempo.
+        "beat_offset": round(offset, 3),
         "bpm_raw": round(raw, 1),
         "bpm_confidence": round(best_score, 3),
         "bpm_alternatives": [round(b, 1) for _, b in scored[1:3]],
@@ -137,6 +167,39 @@ def analyze_stems(stems):
     return out
 
 
+def _trap(bpm=170.0, secs=20.0, sr=SR):
+    """Patron de trap sintetico: el caso que rompia el detector.
+
+    Bombo y caja marcan la mitad y el charles subdivide. El viejo metodo
+    contestaba 113.0 a esto, que es bpm*2/3: un pulso que no toca nadie, ni
+    el charles ni la caja. Es el mismo fallo que daba 113 en una cancion real
+    de 170.
+    """
+    n = int(secs * sr)
+    y = np.zeros(n, dtype=np.float32)
+    rng = np.random.default_rng(0)
+    beat = 60.0 / bpm
+
+    def hit(at, length, freq, amp):
+        i = int(at * sr)
+        k = np.arange(min(int(length * sr), n - i)) / sr
+        if len(k) <= 0:
+            return
+        e = np.exp(-k / (length / 4)) * amp
+        wave = (np.sin(2 * np.pi * freq * k) if freq
+                else rng.standard_normal(len(k)))
+        y[i:i + len(k)] += (wave * e).astype(np.float32)
+
+    for s in range(int(secs / (beat / 2))):        # charles en octavos
+        hit(s * beat / 2, 0.025, 9000, 0.35 if s % 2 == 0 else 0.21)
+    for b in range(int(secs / beat)):
+        if b % 4 == 0:
+            hit(b * beat, 0.18, 55, 1.0)           # bombo
+        if b % 4 == 2:
+            hit(b * beat, 0.12, 0, 0.8)            # caja, el contragolpe
+    return y
+
+
 def _demo(fixture):
     """Ground truth del fixture: 120.0 BPM, A minor."""
     d = Path(fixture)
@@ -155,6 +218,16 @@ def _demo(fixture):
     assert abs(ref["bpm"] - 120.0) < 2.0, f"BPM de drums: {ref['bpm']} != 120"
     # Sobre bass+other, sin voz ni percusion, si se exige el acierto exacto.
     assert ref["key"] == "A minor", f"key de bass+other: {ref['key']} != A minor"
+
+    # Regresion del nivel metrico. Se exige caer en la rejilla, no un numero:
+    # 170 y 85 son la misma cuadricula leida a dos velocidades y las dos son
+    # defendibles. 113 no lo es, y era justo lo que salia antes.
+    trap = estimate_bpm(_trap(170.0))
+    print("trap 170 ", json.dumps(trap))
+    off = min(abs(trap["bpm"] - x) for x in (85.0, 170.0))
+    assert off < 2.0, f"trap: {trap['bpm']} no es 85 ni 170"
+    # La fase cae dentro de un pulso: si no, el metronomo entra a destiempo.
+    assert 0 <= trap["beat_offset"] < 60.0 / trap["bpm"], trap["beat_offset"]
     print("\ndemo ok: BPM y key correctos contra ground truth")
 
 

@@ -91,6 +91,32 @@ def h_prepare(src, out):
 
 # --- handlers del bucle ------------------------------------------------------
 
+def click_track(out, bpm, offset, duration, sr=SR):
+    """Metronomo de comprobacion: clics a tempo CONSTANTE desde el primer beat.
+
+    Constante a proposito, y ahi esta toda la gracia. Un metronomo pegado a
+    los beats que detecto el tracker sonaria bien aunque el numero fuese
+    falso; este empieza donde empieza la musica y sigue a ritmo fijo, asi que
+    si el BPM esta mal el clic se va separando y se oye solo. Es la diferencia
+    entre comprobar el dato y decorarlo.
+
+    Mono: es una pista de control, no material. Entra en cualquier DAW igual.
+    """
+    period = 60.0 / bpm
+    n = int(round(duration * sr))
+    k = np.arange(int(0.03 * sr)) / sr
+    # Seno de 1 kHz con caida exponencial: pega fuerte en el transitorio, que
+    # es lo que deja ver si el clic cae sobre el golpe o al lado.
+    click = (np.sin(2 * np.pi * 1000 * k) * np.exp(-k * 90) * 0.6)
+    track = np.zeros(n + len(click), dtype="float32")
+    times = np.arange(offset, duration, period)
+    for t in times:
+        i = int(round(t * sr))
+        track[i:i + len(click)] += click
+    sf.write(out, track[:n], sr, subtype="PCM_24")
+    return {"clicks": len(times), "bpm": bpm}
+
+
 def h_analyze(path):
     import analyze
     return analyze.analyze(path)
@@ -117,6 +143,26 @@ HANDLERS = {
 
 # --- one-shot ----------------------------------------------------------------
 
+def _selfcheck():
+    """python worker.py --selfcheck: que el clic caiga donde dice que cae."""
+    with tempfile.TemporaryDirectory() as d:
+        out = str(Path(d) / "click.flac")
+        bpm, offset, dur = 170.0, 0.137, 12.0
+        info = click_track(out, bpm, offset, dur)
+        y, sr = sf.read(out, dtype="float32")
+        assert sr == SR and abs(len(y) / sr - dur) < 0.01, "duracion"
+        # Un clic son varios lobulos de seno por encima del umbral; se agrupan
+        # los que esten a menos de 20 ms y cada grupo cuenta como un golpe.
+        loud = np.flatnonzero(y > 0.3)
+        starts = loud[np.r_[True, np.diff(loud) > sr // 50]] / sr
+        assert len(starts) == info["clicks"], f"{len(starts)} != {info['clicks']}"
+        assert abs(starts[0] - offset) < 0.002, f"fase: {starts[0]:.4f}"
+        drift = float(np.abs(np.diff(starts) - 60.0 / bpm).max())
+        assert drift < 0.002, f"deriva entre clics: {drift * 1000:.1f} ms"
+    print(f"selfcheck ok: {info['clicks']} clics a {bpm} BPM, "
+          f"primero en {offset}s, deriva < 2 ms")
+
+
 def one_shot(argv):
     cmd = argv[0]
     if cmd == "zip":
@@ -128,6 +174,11 @@ def one_shot(argv):
         with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:
             for arc, src in zip(rest[::2], rest[1::2]):
                 z.write(src, arc)
+    elif cmd == "click":
+        out, bpm, offset, duration = argv[1], *map(float, argv[2:5])
+        click_track(out, bpm, offset, duration)
+    elif cmd == "--selfcheck":
+        _selfcheck()
     elif cmd == "export":
         src, out, fmt = argv[1], argv[2], argv[3]
         if fmt == "wav24":

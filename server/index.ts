@@ -125,13 +125,35 @@ const formatOf = (s: string | null): Format =>
   s === "mp3" || s === "wav24" ? s : "flac";
 
 /** Un stem convertido al formato pedido, cacheado en disco. */
-async function materialize(dir: string, stem: Stem, format: Format) {
-  const src = join(dir, `${stem}.flac`);
+async function materialize(dir: string, base: string, format: Format) {
+  const src = join(dir, `${base}.flac`);
   if (!existsSync(src)) return null;
   if (format === "flac") return src;
-  const out = join(dir, `${stem}${FORMATS[format]}`);
+  const out = join(dir, `${base}${FORMATS[format]}`);
   if (!existsSync(out)) await worker.oneShot(["export", src, out, format]);
   return out;
+}
+
+/** Metronomo al BPM detectado, generado la primera vez que se pide.
+ *
+ * Se genera aqui y no al separar porque depende del BPM refinado (el que se
+ * mide sobre la bateria sola) y porque cuesta medio segundo: no hay nada que
+ * adelantar.
+ */
+async function clickTrack(dir: string, job: Job, format: Format) {
+  const a = bestAnalysis(job);
+  if (!a.bpm || !a.duration) return null;
+  // El BPM va en el nombre del cacheado: si el analisis cambia, el archivo es
+  // otro. Con un "click.flac" fijo, un reanalisis deja en disco un metronomo
+  // al tempo viejo y se sirve tal cual -- justo el error que este archivo
+  // existe para delatar.
+  const base = `click-${a.bpm}`;
+  const src = join(dir, `${base}.flac`);
+  if (!existsSync(src)) {
+    await worker.oneShot(["click", src, String(a.bpm),
+                          String(a.beat_offset ?? 0), String(a.duration)]);
+  }
+  return materialize(dir, base, format);
 }
 
 /** Descarga de los stems marcados: uno va directo, varios en un zip.
@@ -145,24 +167,28 @@ async function download(res: ServerResponse, id: string, url: URL) {
   const format = formatOf(url.searchParams.get("format"));
   const stems = (url.searchParams.get("pick") ?? "")
     .split(",").map(stemOf).filter((s): s is Stem => s !== null);
-  if (!stems.length) return json(res, 400, { error: "no has marcado ningun stem" });
 
   const dir = q.dirOf(id);
+  const title = titleOf(job);
   // Se emparejan stem y ruta ANTES de filtrar: con un indice sobre el array ya
   // filtrado, si falta un stem los nombres se desplazan y salen cruzados.
-  const picked = (await Promise.all(stems.map(async (s) =>
-    [s, await materialize(dir, s, format)] as const)))
-    .filter((p): p is readonly [Stem, string] => p[1] !== null);
-  if (!picked.length) return json(res, 404, { error: "ningun stem disponible" });
+  const files = (await Promise.all(stems.map(
+    async (s): Promise<[string, string] | null> => {
+      const f = await materialize(dir, s, format);
+      return f ? [`${title} - ${s}${FORMATS[format]}`, f] : null;
+    }))).filter((p): p is [string, string] => p !== null);
 
-  const title = titleOf(job);
-  const nameOf = (s: Stem) => `${title} - ${s}${FORMATS[format]}`;
-  if (picked.length === 1) return sendFile(res, picked[0][1], nameOf(picked[0][0]));
+  if (url.searchParams.get("click") === "1") {
+    const click = await clickTrack(dir, job, format);
+    if (click) files.push([`${title} - metronomo${FORMATS[format]}`, click]);
+  }
+  if (!files.length) return json(res, 404, { error: "no hay nada que descargar" });
+  if (files.length === 1) return sendFile(res, files[0][1], files[0][0]);
 
   const zip = join(dir, `stems-${format}.zip`);
   // Pares nombre/ruta: los nombres de dentro del zip tambien llevan BPM y key,
   // que es lo que queda al descomprimir en una carpeta con otras canciones.
-  await worker.oneShot(["zip", zip, ...picked.flatMap(([s, f]) => [nameOf(s), f])]);
+  await worker.oneShot(["zip", zip, ...files.flat()]);
   sendFile(res, zip, `${title} - stems.zip`);
 }
 

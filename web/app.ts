@@ -216,6 +216,7 @@ class Card {
   private timeEl?: HTMLSpanElement;
   private playEl?: HTMLButtonElement;
   private dlEl?: HTMLButtonElement;
+  private clickEl?: HTMLInputElement;
 
   constructor(private job: Job) {
     this.barEl = h("div", { class: "bar" }, this.fillEl);
@@ -335,18 +336,30 @@ class Card {
       h("option", { value: "flac" }, "FLAC"),
       h("option", { value: "wav24" }, "WAV 24"),
       h("option", { value: "mp3" }, "MP3 320")) as HTMLSelectElement;
+    // Marcado por defecto: el BPM es un dato que conviene comprobar, no
+    // creerse. Si el clic se despega de la musica, el numero esta mal.
+    const click = h("input", { type: "checkbox" }) as HTMLInputElement;
+    click.checked = true;
+    click.addEventListener("change", () => this.syncDownload());
+    this.clickEl = click;
+    const clickLabel = h("label", {
+      class: "click",
+      title: "pista de clic a tempo fijo con el BPM detectado, para comprobar que lo sigue",
+    }, click, "metrónomo");
+
     const dl = h("button", { class: "primary" }, "Descargar") as HTMLButtonElement;
     dl.addEventListener("click", () => {
       const pick = [...this.picks].filter(([, c]) => c.checked).map(([s]) => s);
-      if (!pick.length) return;
+      if (!pick.length && !click.checked) return;
       // Navegacion normal: el navegador bloquea varias descargas seguidas, por
       // eso el servidor zipea cuando hay mas de uno.
-      location.href =
-        `/api/jobs/${this.job.id}/download?pick=${pick.join(",")}&format=${fmtSel.value}`;
+      location.href = `/api/jobs/${this.job.id}/download?pick=${pick.join(",")}`
+        + `&format=${fmtSel.value}${click.checked ? "&click=1" : ""}`;
     });
     this.dlEl = dl;
 
-    this.actionsEl.append(this.playEl, this.seekEl, this.timeEl, fmtSel, dl);
+    this.actionsEl.append(this.playEl, this.seekEl, this.timeEl,
+                          clickLabel, fmtSel, dl);
     this.player.onTick = () => this.paintTransport();
     this.paintStems();
     this.paintTransport();
@@ -354,7 +367,8 @@ class Card {
 
   private syncDownload() {
     if (!this.dlEl) return;
-    const n = [...this.picks.values()].filter((c) => c.checked).length;
+    const n = [...this.picks.values()].filter((c) => c.checked).length
+      + (this.clickEl?.checked ? 1 : 0);
     this.dlEl.disabled = n === 0;
     this.dlEl.textContent = n > 1 ? `Descargar ${n} (zip)` : "Descargar";
   }

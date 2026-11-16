@@ -20,6 +20,8 @@ export interface Analysis {
   bpm_raw?: number;
   bpm_confidence?: number;
   bpm_alternatives?: number[];
+  /** Segundo en que cae el primer beat. El metronomo entra ahi. */
+  beat_offset?: number;
   key?: string | null;
   key_confidence?: number;
   /** Distancia a la segunda candidata: margen pequeno = no te lo creas. */
