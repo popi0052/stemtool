@@ -5,109 +5,292 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stemtool</title>
 <style>
+  /* BM Space (BitmapMania / cooz, 2001). Fuente de mapa de bits: solo se ve
+     nitida en multiplos de su rejilla. unitsPerEm = 900, o sea 9px por em, y
+     de ahi los dos unicos tamanos que se usan (45 y 27).
+     Se reserva para los dos titulos y nada mas: 96 glifos, sin acentos, y a
+     tamano de texto corrido cansa. El resto de la interfaz va en la sans del
+     sistema, que si tiene tildes. */
+  @font-face {
+    font-family: "BM Space";
+    src: url("fonts/bmspace.ttf") format("truetype");
+    font-display: swap;
+  }
+
   :root {
-    --bg: #fbfbfc; --panel: #fff; --line: #e3e3e8; --text: #16161a;
-    --dim: #71717a; --accent: #4f46e5; --ok: #16a34a; --bad: #dc2626;
-    --vocals: #e11d48; --drums: #f59e0b; --bass: #0891b2; --other: #7c3aed;
+    --paper: #fff;        /* la ciudad blanca */
+    --wash: #eef1f3;      /* plano hundido */
+    --ink: #0e1213;
+    --ink2: #657074;
+    --line: #ccd6d8;
+
+    /* Vision de corredor: el acento marca lo que se toca, y nada mas. */
+    --tq: #0fb9ab;        /* relleno */
+    --tq2: #0a9e92;       /* relleno pulsado */
+    --on-tq: #04231f;     /* texto sobre el relleno */
+    --tq-ink: #0a7d74;    /* el acento como texto, legible sobre blanco */
+
+    --warn: #b45309;      /* duda, no fallo */
+    --bad: #d92d20;       /* esto si es un fallo */
+
+    --vocals: #ff6b35; --drums: #ffb703; --bass: #7b61ff; --other: #ff4d9d;
+
+    --title: "BM Space", ui-monospace, "Segoe UI", sans-serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0e0e11; --panel: #17171b; --line: #2a2a31; --text: #ededf0;
-      --dim: #8b8b96; --accent: #818cf8; --ok: #4ade80; --bad: #f87171;
+      --paper: #0a0d0e; --wash: #141a1b; --ink: #eef4f4; --ink2: #87959a;
+      --line: #232b2d; --tq-ink: #2ad4c4; --warn: #e8a33d; --bad: #ff6b5e;
+      color-scheme: dark;
     }
   }
+
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; padding: 24px 16px 64px; background: var(--bg); color: var(--text);
-    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0; padding: 0 0 80px; background: var(--paper); color: var(--ink);
+    font: 15px/1.6 var(--sans);
   }
-  main { max-width: 760px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 2px; letter-spacing: -0.01em; }
-  .sub { color: var(--dim); font-size: 13px; margin-bottom: 20px; }
+  main { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  /* Etiqueta: versalita ancha. Hace el trabajo que hacia la fuente de pixeles
+     en todas partes, sin gritar. */
+  .lbl {
+    text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
+    font-size: 11px;
+  }
+
+  :focus-visible { outline: 2px solid var(--tq); outline-offset: 2px; }
+  ::selection { background: var(--tq); color: var(--on-tq); }
+
+  /* --- cabecera ------------------------------------------------------------ */
+
+  header { padding: 56px 0 0; }
+  .mark {
+    font-family: var(--title); font-size: 45px; line-height: 1;
+    margin: 0; letter-spacing: .02em; font-weight: 400;
+  }
+  .mark i { font-style: normal; color: var(--tq-ink); }
+  .rule { height: 3px; background: var(--tq); width: 72px; margin: 18px 0 14px; }
+  .lede { color: var(--ink2); max-width: 54ch; margin: 0 0 36px; }
+
+  /* --- zona de soltar ------------------------------------------------------ */
 
   #drop {
-    border: 1.5px dashed var(--line); border-radius: 12px; padding: 32px 20px;
-    text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
-    background: var(--panel);
+    position: relative; background: var(--wash); border: 1px solid var(--line);
+    padding: 52px 24px; text-align: center; cursor: pointer;
+    transition: background .12s linear, border-color .12s linear;
   }
-  #drop:hover, #drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
-  #drop.over { border-style: solid; }
-  #drop b { display: block; margin-bottom: 4px; }
-  #drop span { color: var(--dim); font-size: 13px; }
+  /* Corchetes de visor en las esquinas: un HUD, no una tarjeta web */
+  #drop::before, #drop::after {
+    content: ""; position: absolute; width: 18px; height: 18px;
+    border: 3px solid var(--tq); transition: inset .12s ease;
+  }
+  #drop::before { inset: 10px auto auto 10px; border-width: 3px 0 0 3px; }
+  #drop::after { inset: auto 10px 10px auto; border-width: 0 3px 3px 0; }
+  #drop:hover { background: color-mix(in srgb, var(--tq) 5%, var(--wash)); }
+  #drop.over { background: color-mix(in srgb, var(--tq) 11%, var(--wash)); border-color: var(--tq); }
+  #drop.over::before { inset: 4px auto auto 4px; }
+  #drop.over::after { inset: auto 4px 4px auto; }
+  #drop .big { font-family: var(--title); font-size: 27px; display: block; }
+  #drop .meta { color: var(--ink2); font-size: 13px; margin-top: 10px; }
+  .browse {
+    margin-top: 22px; font: 600 13px/1 var(--sans); text-transform: uppercase;
+    letter-spacing: .08em; background: var(--ink); color: var(--paper);
+    border: 0; padding: 12px 22px; cursor: pointer;
+  }
+  #drop:hover .browse, .browse:hover { background: var(--tq); color: var(--on-tq); }
 
-  .opts { display: flex; gap: 16px; align-items: center; justify-content: center;
-          margin: 14px 0 24px; font-size: 13px; color: var(--dim); flex-wrap: wrap; }
-  .opts label { display: flex; gap: 6px; align-items: center; cursor: pointer; color: var(--text); }
+  /* --- preajustes ---------------------------------------------------------- */
 
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-          padding: 14px 16px; margin-bottom: 12px; }
-  .top { display: flex; align-items: baseline; gap: 10px; }
+  .presets { display: flex; margin: 24px 0 10px; border: 1px solid var(--line); }
+  .presets label {
+    flex: 1; text-align: center; padding: 13px 10px; cursor: pointer;
+    text-transform: uppercase; letter-spacing: .09em; font-size: 12.5px;
+    font-weight: 600; color: var(--ink2);
+    transition: background .12s linear, color .12s linear;
+  }
+  .presets label + label { border-left: 1px solid var(--line); }
+  .presets input { position: absolute; opacity: 0; pointer-events: none; }
+  .presets label:has(input:checked) { background: var(--tq); color: var(--on-tq); }
+  .presets label:has(input:focus-visible) { outline: 2px solid var(--tq); outline-offset: 2px; }
+  .presets small {
+    display: block; font-size: 11px; font-weight: 400; letter-spacing: 0;
+    text-transform: none; opacity: .8; margin-top: 3px;
+  }
+  .hint { color: var(--ink2); font-size: 12.5px; margin: 0 0 40px; }
+  .hint kbd {
+    font: 600 11px/1 var(--sans); border: 1px solid var(--line);
+    padding: 3px 6px; color: var(--ink); background: var(--wash);
+  }
+
+  /* --- tarjetas ------------------------------------------------------------ */
+
+  .card {
+    border: 1px solid var(--line); border-left: 3px solid var(--line);
+    background: var(--paper); padding: 18px 20px; margin-bottom: 14px;
+  }
+  .card.live { border-left-color: var(--tq); }
+  .card.bad { border-left-color: var(--bad); }
+  .top { display: flex; align-items: center; gap: 12px; }
   .name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden;
           text-overflow: ellipsis; white-space: nowrap; }
-  .tag { font-size: 11px; color: var(--dim); border: 1px solid var(--line);
-         border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
-  .x { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 16px;
-       line-height: 1; padding: 2px 4px; }
+  .tag {
+    text-transform: uppercase; letter-spacing: .1em; font-size: 10px;
+    font-weight: 600; border: 1px solid var(--line); padding: 4px 8px;
+    color: var(--ink2); white-space: nowrap;
+  }
+  .x { background: none; border: 0; color: var(--ink2); cursor: pointer;
+       font-size: 15px; line-height: 1; padding: 4px 6px; }
   .x:hover { color: var(--bad); }
 
-  .facts { display: flex; gap: 18px; margin: 10px 0 0; font-size: 13px; flex-wrap: wrap; }
-  .facts div { color: var(--dim); }
-  .facts b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .warn { color: var(--dim); font-size: 11px; }
+  /* Lectura de datos: lo que el usuario vino a saber, en grande */
+  .facts { display: flex; flex-wrap: wrap; gap: 14px 30px; margin: 16px 0 0; }
+  .facts > div { display: flex; flex-direction: column-reverse; }
+  .facts .k {
+    text-transform: uppercase; letter-spacing: .12em; font-size: 10px;
+    font-weight: 600; color: var(--ink2); margin-top: 2px;
+  }
+  .facts .v {
+    font-size: 26px; font-weight: 600; line-height: 1.1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  }
+  .facts .v.soft { color: var(--ink2); font-weight: 500; }
+  .warn { color: var(--warn); font-size: 11px; font-weight: 500;
+          letter-spacing: 0; margin-left: 7px; white-space: nowrap; }
 
-  .bar { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden;
-         margin: 12px 0 6px; }
-  .bar i { display: block; height: 100%; background: var(--accent); width: 0;
-           transition: width .3s; }
-  .status { font-size: 12px; color: var(--dim); }
+  .bar { height: 6px; background: var(--wash); margin: 18px 0 8px; overflow: hidden; }
+  .bar i {
+    display: block; height: 100%; width: 0; background: var(--tq);
+    transition: width .35s linear;
+    /* Segmentado: se ve avanzar aunque el porcentaje se mueva despacio */
+    -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px);
+    mask-image: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px);
+  }
+  .status {
+    text-transform: uppercase; letter-spacing: .09em; font-size: 11.5px;
+    font-weight: 600; color: var(--ink2);
+  }
   .status.err { color: var(--bad); }
 
-  .stems { margin: 12px 0 0; display: none; }
-  .stems.on { display: block; }
-  .stem { display: flex; align-items: center; gap: 10px; padding: 5px 0; font-size: 13px; }
-  .stem input[type=checkbox] { accent-color: var(--accent); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .stem .label { flex: 1; text-transform: capitalize; }
-  .stem.off .label { opacity: .4; }
-  .stem button { background: none; border: 1px solid var(--line); border-radius: 6px;
-                 color: var(--dim); cursor: pointer; font-size: 11px; padding: 2px 7px; }
-  .stem button.on { border-color: var(--accent); color: var(--accent); }
+  /* --- mezclador ------------------------------------------------------------ */
 
-  .actions { display: flex; gap: 8px; align-items: center; margin-top: 12px;
-             padding-top: 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
-  button.primary { background: var(--accent); color: #fff; border: 0; border-radius: 8px;
-                   padding: 7px 14px; font-size: 13px; font-weight: 500; cursor: pointer; }
-  button.primary:disabled { opacity: .45; cursor: default; }
-  button.ghost { background: none; border: 1px solid var(--line); color: var(--text);
-                 border-radius: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; }
-  select { background: var(--panel); color: var(--text); border: 1px solid var(--line);
-           border-radius: 8px; padding: 7px 8px; font-size: 13px; }
-  .click { display: flex; align-items: center; gap: 6px; font-size: 13px;
-           color: var(--dim); cursor: pointer; white-space: nowrap; }
-  .click input { accent-color: var(--accent); }
-  .seek { flex: 1; min-width: 120px; accent-color: var(--accent); }
-  .time { font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
-  .empty { color: var(--dim); font-size: 13px; text-align: center; padding: 28px 0; }
+  .stems { margin: 18px 0 0; display: none; border-top: 1px solid var(--line); }
+  .stems.on { display: block; }
+  .stem {
+    display: flex; align-items: center; gap: 12px; padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .stem:last-child { border-bottom: 0; }
+  .stem input[type=checkbox] { accent-color: var(--tq); width: 15px; height: 15px; margin: 0; }
+  .chip { width: 10px; height: 10px; flex: none; }
+  .stem .label {
+    text-transform: uppercase; letter-spacing: .1em; font-size: 12.5px;
+    font-weight: 600; width: 92px; flex: none;
+  }
+  .stem.off .label, .stem.off .chip { opacity: .35; }
+  /* Medidor: se mide antes de la ganancia, asi un stem silenciado sigue
+     delatando que tiene senal (sirve para oir fugas entre pistas). */
+  .meter { flex: 1; height: 10px; background: var(--wash); min-width: 40px; }
+  .meter i { display: block; height: 100%; width: 100%; background: currentColor;
+             transform: scaleX(0); transform-origin: left; }
+  .stem button {
+    font: 700 12px/1 var(--sans); background: none; border: 1px solid var(--line);
+    color: var(--ink2); cursor: pointer; width: 32px; padding: 7px 0;
+  }
+  .stem button.on { background: var(--tq); border-color: var(--tq); color: var(--on-tq); }
+
+  /* --- transporte ----------------------------------------------------------- */
+
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px;
+             padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .play {
+    font-size: 13px; background: var(--ink); color: var(--paper); border: 0;
+    cursor: pointer; width: 52px; padding: 10px 0; line-height: 1;
+  }
+  .play:hover { background: var(--tq); color: var(--on-tq); }
+
+  /* Barra de posicion a mano: el control nativo es una pildora gorda que no
+     pega con nada de aqui. El relleno lo pinta --p, que el reproductor
+     actualiza en cada fotograma; el pulgar es una plomada de 4px. */
+  .seek {
+    flex: 1; min-width: 140px; height: 20px; -webkit-appearance: none;
+    appearance: none; background: none; cursor: pointer;
+  }
+  .seek::-webkit-slider-runnable-track {
+    height: 6px; background: linear-gradient(90deg, var(--tq) var(--p, 0%), var(--line) 0);
+  }
+  .seek::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 4px; height: 20px; margin-top: -7px;
+    background: var(--ink); border: 0;
+  }
+  .seek::-moz-range-track { height: 6px; background: var(--line); }
+  .seek::-moz-range-progress { height: 6px; background: var(--tq); }
+  .seek::-moz-range-thumb { width: 4px; height: 20px; background: var(--ink);
+                            border: 0; border-radius: 0; }
+
+  .time { font-size: 12.5px; color: var(--ink2); white-space: nowrap;
+          font-variant-numeric: tabular-nums; }
+  .row2 { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; width: 100%; }
+  .click { display: flex; align-items: center; gap: 7px; font-size: 13px;
+           color: var(--ink2); cursor: pointer; white-space: nowrap; }
+  .click input { accent-color: var(--tq); }
+  select {
+    font: 500 13px/1 var(--sans); background: var(--paper); color: var(--ink);
+    border: 1px solid var(--line); padding: 10px 8px; cursor: pointer;
+  }
+  .dl {
+    margin-left: auto; font: 700 13px/1 var(--sans); text-transform: uppercase;
+    letter-spacing: .08em; background: var(--tq); color: var(--on-tq);
+    border: 0; padding: 13px 24px; cursor: pointer;
+  }
+  .dl:hover { background: var(--tq2); }
+  .dl:disabled { background: var(--wash); color: var(--ink2); cursor: default; }
+
+  .empty {
+    color: var(--ink2); text-transform: uppercase; letter-spacing: .12em;
+    font-size: 12px; font-weight: 600; text-align: center; padding: 40px 0;
+  }
+  .empty.lost { color: var(--bad); }
+
+  @media (max-width: 560px) {
+    .mark { font-size: 27px; }
+    #drop .big { font-size: 27px; }
+    .facts { gap: 12px 22px; }
+    .facts .v { font-size: 20px; }
+    .stem .label { width: 78px; }
+    .dl { margin-left: 0; width: 100%; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>stemtool</h1>
-  <p class="sub">Arrastra un audio. Te doy BPM y key al momento, y los 4 stems cuando acabe.</p>
+  <header>
+    <h1 class="mark">STEM<i>TOOL</i></h1>
+    <div class="rule"></div>
+    <p class="lede">Separador de stems local. Nada sale de este ordenador:
+      el audio se queda aquí y la GPU hace el trabajo.</p>
+  </header>
 
-  <div id="drop">
-    <b>Suelta aqui tu cancion</b>
-    <span>mp3, wav, flac, m4a, ogg &middot; o pulsa para elegir</span>
+  <div id="drop" role="button" tabindex="0" aria-label="Soltar o elegir archivos de audio">
+    <span class="big">SUELTA UN AUDIO</span>
+    <span class="meta">mp3 · wav · flac · m4a · aac · ogg · opus · aiff · wma &nbsp;—&nbsp; hasta 600 MB</span>
+    <button class="browse" type="button" id="browse">Elegir archivo</button>
     <input type="file" id="file" multiple accept="audio/*" hidden>
   </div>
 
-  <div class="opts">
-    <label><input type="radio" name="preset" value="fast" checked> Rapido <span>(htdemucs_ft)</span></label>
-    <label><input type="radio" name="preset" value="max"> Maxima calidad <span>(RoFormer + Demucs)</span></label>
+  <div class="presets" role="radiogroup" aria-label="Calidad">
+    <label><input type="radio" name="preset" value="fast" checked>
+      <span>Rápido<small>htdemucs_ft · un paso</small></span></label>
+    <label><input type="radio" name="preset" value="max">
+      <span>Máxima calidad<small>RoFormer + Demucs · más lento</small></span></label>
   </div>
+  <p class="hint"><kbd>espacio</kbd> reproduce o pausa &nbsp;·&nbsp;
+    <kbd>M</kbd> silencia &nbsp;·&nbsp; <kbd>S</kbd> deja un stem solo</p>
 
   <div id="list"></div>
-  <p class="empty" id="empty">Nada todavia.</p>
+  <p class="empty" id="empty">Nada todavía</p>
 </main>
 <script type="module" src="dist/web/app.js"></script>
 </body>

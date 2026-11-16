@@ -25,6 +25,7 @@ const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8", ".json": "application/json",
   ".flac": "audio/flac", ".wav": "audio/wav", ".mp3": "audio/mpeg",
   ".zip": "application/zip", ".svg": "image/svg+xml",
+  ".ttf": "font/ttf", ".woff2": "font/woff2",
 };
 
 const json = (res: ServerResponse, code: number, body: unknown) => {

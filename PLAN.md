@@ -266,3 +266,59 @@ preset (htdemucs_ft ~320 MB, BS-RoFormer ~1 GB).
 - [KeyMyna, key detection SOTA 2026](https://arxiv.org/pdf/2604.10021)
 - [ONNX Runtime Web: large models](https://onnxruntime.ai/docs/tutorials/web/large-models.html) — techos de 2/4 GB
 - [Tauri sidecar](https://v2.tauri.app/zh-cn/develop/sidecar/) — lo que nos ahorramos
+
+## Interfaz (2026-11-16)
+
+Rediseño con estética de Mirror's Edge: fondo blanco, geometría recta sin
+esquinas redondeadas y corchetes de visor en la zona de soltar. El negro de ME
+es el modo oscuro, no el tema por defecto.
+
+El acento es turquesa `#0fb9ab`, no el rojo del juego, y está reservado para lo
+que se toca: botón de descarga, preajuste activo, M/S encendidos, barra viva de
+la tarjeta. Como texto sobre blanco el turquesa brillante no llega a contraste,
+así que hay un segundo tono `--tq-ink` solo para eso. Lo único que sigue siendo
+rojo es el estado de error, que es semántico y no decorativo; la duda (key poco
+clara, BPM que no cuadra con el del mix) va en ámbar.
+
+### La fuente, solo en los títulos
+
+`web/fonts/bmspace.ttf` es BM Space (BitmapMania / cooz, 2001), fuente de mapa
+de bits. Se usa en dos sitios y nada más: el logotipo y el titular de la zona
+de soltar. Las dos razones son restricciones de la propia fuente:
+
+- **unitsPerEm = 900**, es decir 9 px por em. Solo se ve nítida en múltiplos de
+  9, y de ahí los dos únicos tamaños que aparecen: 45 px el logotipo, 27 px el
+  titular. En 14 px o 16 px el navegador interpola y los píxeles salen sucios,
+  que es justo lo que pasaría si se usara para texto corrido.
+- **96 glifos, sin acentos.** No existen á é í ó ú ñ ¿ ¡. Mientras se quede en
+  títulos en inglés no molesta; en cuanto toca interfaz en español, cada
+  palabra con tilde se parte en dos tipografías a media palabra.
+
+El resto va en la sans del sistema. Las versalitas las pone el CSS con
+`text-transform: uppercase`, no el texto fuente, porque así "duración" se
+convierte en "DURACIÓN" con su acento en vez de quedarse escrito sin él.
+
+Licencia: gratuita, uso personal permitido, prohibido adjuntarla a un producto
+comercial sin permiso del autor (`web/fonts/LICENSE-bmspace.txt`, en japonés).
+
+### Lo que cambió en el uso, no solo en el aspecto
+
+- Medidor de nivel por stem, **antes de la ganancia**: un stem silenciado sigue
+  enseñando señal, que es como se detecta una fuga entre pistas.
+- `espacio` reproduce o pausa; `M` y `S` sobre la fila de un stem enfocada.
+- El `dragleave` lleva contador: con una bandera simple el marco parpadea al
+  pasar el cursor por encima de un hijo de la zona de soltar.
+- La zona de soltar dice el límite real (600 MB) y lleva botón visible, que es
+  el respaldo para quien no arrastra.
+- El total de la canción sale del análisis, así el transporte muestra
+  `0:00 / 3:38` antes de descargar los stems.
+
+### Fuentes del rediseño
+
+- [BM Space en dafont](https://www.dafont.com/es/bm-space.font)
+- [Paleta y color de Mirror's Edge](https://www.worldofleveldesign.com/categories/game_environments_design/mirrors-edge-color.php) — blanco neutro de base, rojo como señal de navegación
+- [Style and gameplay in Mirror's Edge (DICE)](https://de.slideshare.net/DICEStudio/style-and-gameplay-in-the-mirrors-edge)
+- [stemplayer-js](https://unpkg.com/@stemplayer-js/stemplayer-js@4.1.0-beta.4/README.md) — fila por stem con solo/mute/volumen
+- [Demo stem separator de WebNN](https://microsoft.github.io/webnn-developer-preview/demos/stem-separator/) — atajos M y S
+- [File uploader UX best practices](https://uploadcare.com/blog/file-uploader-ux-best-practices/) — formatos y límite en el estado vacío, progreso real
+- [Upload file UI: componentes, estados y errores](https://blog.filestack.com/upload-file-ui-design-components-states-and-errors/)
