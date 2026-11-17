@@ -49,10 +49,20 @@
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; padding: 0 0 80px; background: var(--paper); color: var(--ink);
+    margin: 0; padding: 0 0 40px; background: var(--paper); color: var(--ink);
     font: 15px/1.6 var(--sans);
   }
-  main { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  /* Dos columnas: a la izquierda lo que se usa para empezar un trabajo, a la
+     derecha lo que produce. Los controles no se van con el scroll, asi que
+     subir la segunda cancion no obliga a volver arriba, y el alto que antes
+     gastaba la cabecera ahora lo aprovecha la lista. */
+  main {
+    max-width: 1240px; margin: 0 auto; padding: 0 24px;
+    display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 36px;
+    align-items: start;
+  }
+  .panel { position: sticky; top: 24px; }
 
   /* Etiqueta: versalita ancha. Hace el trabajo que hacia la fuente de pixeles
      en todas partes, sin gritar. */
@@ -66,20 +76,23 @@
 
   /* --- cabecera ------------------------------------------------------------ */
 
-  header { padding: 56px 0 0; }
+  /* 27 y 18: la fuente es de mapa de bits y solo cae nitida en multiplos de
+     su rejilla de 9px. Bajar de 45 a 27 no es elegir un numero mas pequeno,
+     es bajar un escalon entero. */
+  header { padding: 26px 0 0; }
   .mark {
-    font-family: var(--title); font-size: 45px; line-height: 1;
+    font-family: var(--title); font-size: 27px; line-height: 1;
     margin: 0; letter-spacing: .02em; font-weight: 400;
   }
   .mark i { font-style: normal; color: var(--tq-ink); }
-  .rule { height: 3px; background: var(--tq); width: 72px; margin: 18px 0 14px; }
-  .lede { color: var(--ink2); max-width: 54ch; margin: 0 0 36px; }
+  .rule { height: 3px; background: var(--tq); width: 54px; margin: 13px 0 11px; }
+  .lede { color: var(--ink2); margin: 0 0 20px; font-size: 13.5px; line-height: 1.5; }
 
   /* --- zona de soltar ------------------------------------------------------ */
 
   #drop {
     position: relative; background: var(--wash); border: 1px solid var(--line);
-    padding: 52px 24px; text-align: center; cursor: pointer;
+    padding: 30px 18px; text-align: center; cursor: pointer;
     transition: background .12s linear, border-color .12s linear;
   }
   /* Corchetes de visor en las esquinas: un HUD, no una tarjeta web */
@@ -93,25 +106,32 @@
   #drop.over { background: color-mix(in srgb, var(--tq) 11%, var(--wash)); border-color: var(--tq); }
   #drop.over::before { inset: 4px auto auto 4px; }
   #drop.over::after { inset: auto 4px 4px auto; }
-  #drop .big { font-family: var(--title); font-size: 27px; display: block; }
-  #drop .meta { color: var(--ink2); font-size: 13px; margin-top: 10px; }
+  #drop .big { font-family: var(--title); font-size: 18px; display: block; }
+  #drop .meta { display: block; color: var(--ink2); font-size: 12px;
+                margin-top: 8px; line-height: 1.5; }
+  /* En bloque: en la columna estrecha la lista de formatos parte en dos
+     lineas y el boton se subia a hacerle compania a la ultima. */
   .browse {
-    margin-top: 22px; font: 600 13px/1 var(--sans); text-transform: uppercase;
+    display: block; margin: 16px auto 0;
+    font: 600 12.5px/1 var(--sans); text-transform: uppercase;
     letter-spacing: .08em; background: var(--ink); color: var(--paper);
-    border: 0; padding: 12px 22px; cursor: pointer;
+    border: 0; padding: 11px 20px; cursor: pointer;
   }
   #drop:hover .browse, .browse:hover { background: var(--tq); color: var(--on-tq); }
 
   /* --- preajustes ---------------------------------------------------------- */
 
-  .presets { display: flex; margin: 24px 0 10px; border: 1px solid var(--line); }
+  /* En columna, no lado a lado: en 330px de ancho "Máxima calidad · RoFormer
+     + Demucs" parte en tres lineas y el boton queda mas alto que ancho. */
+  .presets { display: flex; flex-direction: column; margin: 16px 0 10px;
+             border: 1px solid var(--line); }
   .presets label {
-    flex: 1; text-align: center; padding: 13px 10px; cursor: pointer;
+    padding: 10px 13px; cursor: pointer;
     text-transform: uppercase; letter-spacing: .09em; font-size: 12.5px;
     font-weight: 600; color: var(--ink2);
     transition: background .12s linear, color .12s linear;
   }
-  .presets label + label { border-left: 1px solid var(--line); }
+  .presets label + label { border-top: 1px solid var(--line); }
   .presets input { position: absolute; opacity: 0; pointer-events: none; }
   .presets label:has(input:checked) { background: var(--tq); color: var(--on-tq); }
   .presets label:has(input:focus-visible) { outline: 2px solid var(--tq); outline-offset: 2px; }
@@ -119,7 +139,7 @@
     display: block; font-size: 11px; font-weight: 400; letter-spacing: 0;
     text-transform: none; opacity: .8; margin-top: 3px;
   }
-  .hint { color: var(--ink2); font-size: 12.5px; margin: 0 0 40px; }
+  .hint { color: var(--ink2); font-size: 12px; margin: 0; line-height: 2; }
   .hint kbd {
     font: 600 11px/1 var(--sans); border: 1px solid var(--line);
     padding: 3px 6px; color: var(--ink); background: var(--wash);
@@ -129,7 +149,7 @@
 
   .card {
     border: 1px solid var(--line); border-left: 3px solid var(--line);
-    background: var(--paper); padding: 18px 20px; margin-bottom: 14px;
+    background: var(--paper); padding: 15px 17px; margin-bottom: 12px;
   }
   .card.live { border-left-color: var(--tq); }
   .card.bad { border-left-color: var(--bad); }
@@ -146,21 +166,21 @@
   .x:hover { color: var(--bad); }
 
   /* Lectura de datos: lo que el usuario vino a saber, en grande */
-  .facts { display: flex; flex-wrap: wrap; gap: 14px 30px; margin: 16px 0 0; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 13px 0 0; }
   .facts > div { display: flex; flex-direction: column-reverse; }
   .facts .k {
     text-transform: uppercase; letter-spacing: .12em; font-size: 10px;
     font-weight: 600; color: var(--ink2); margin-top: 2px;
   }
   .facts .v {
-    font-size: 26px; font-weight: 600; line-height: 1.1;
+    font-size: 22px; font-weight: 600; line-height: 1.1;
     font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
   }
   .facts .v.soft { color: var(--ink2); font-weight: 500; }
   .warn { color: var(--warn); font-size: 11px; font-weight: 500;
           letter-spacing: 0; margin-left: 7px; white-space: nowrap; }
 
-  .bar { height: 6px; background: var(--wash); margin: 18px 0 8px; overflow: hidden; }
+  .bar { height: 6px; background: var(--wash); margin: 14px 0 7px; overflow: hidden; }
   .bar i {
     display: block; height: 100%; width: 0; background: var(--tq);
     transition: width .35s linear;
@@ -176,10 +196,10 @@
 
   /* --- mezclador ------------------------------------------------------------ */
 
-  .stems { margin: 18px 0 0; display: none; border-top: 1px solid var(--line); }
+  .stems { margin: 14px 0 0; display: none; border-top: 1px solid var(--line); }
   .stems.on { display: block; }
   .stem {
-    display: flex; align-items: center; gap: 12px; padding: 9px 0;
+    display: flex; align-items: center; gap: 12px; padding: 7px 0;
     border-bottom: 1px solid var(--line);
   }
   .stem:last-child { border-bottom: 0; }
@@ -203,8 +223,8 @@
 
   /* --- transporte ----------------------------------------------------------- */
 
-  .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px;
-             padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .actions { display: flex; gap: 10px; align-items: center; margin-top: 13px;
+             padding-top: 13px; border-top: 1px solid var(--line); flex-wrap: wrap; }
   .play {
     font-size: 13px; background: var(--ink); color: var(--paper); border: 0;
     cursor: pointer; width: 52px; padding: 10px 0; line-height: 1;
@@ -254,9 +274,20 @@
   }
   .empty.lost { color: var(--bad); }
 
+  /* Una sola columna en cuanto la derecha se queda sin sitio: dos columnas
+     estrechas obligan a mas scroll que una ancha, que es lo contrario de
+     para lo que estan. */
+  @media (max-width: 980px) {
+    main { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 20px; }
+    .panel { position: static; margin-bottom: 26px; }
+    .presets { flex-direction: row; }
+    .presets label { flex: 1; text-align: center; }
+    .presets label + label { border-top: 0; border-left: 1px solid var(--line); }
+  }
+
   @media (max-width: 560px) {
-    .mark { font-size: 27px; }
-    #drop .big { font-size: 27px; }
+    .mark { font-size: 18px; }
+    #drop .big { font-size: 18px; }
     .facts { gap: 12px 22px; }
     .facts .v { font-size: 20px; }
     .stem .label { width: 78px; }
@@ -266,6 +297,7 @@
 </head>
 <body>
 <main>
+ <aside class="panel">
   <header>
     <h1 class="mark">STEM<i>TOOL</i></h1>
     <div class="rule"></div>
@@ -288,9 +320,12 @@
   </div>
   <p class="hint"><kbd>espacio</kbd> reproduce o pausa &nbsp;·&nbsp;
     <kbd>M</kbd> silencia &nbsp;·&nbsp; <kbd>S</kbd> deja un stem solo</p>
+ </aside>
 
+ <section aria-label="Trabajos">
   <div id="list"></div>
   <p class="empty" id="empty">Nada todavía</p>
+ </section>
 </main>
 <script type="module" src="dist/web/app.js"></script>
 </body>
