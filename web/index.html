@@ -5,15 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stemtool</title>
 <style>
-  /* BM Space (BitmapMania / cooz, 2001). Fuente de mapa de bits: solo se ve
-     nitida en multiplos de su rejilla. unitsPerEm = 900, o sea 9px por em, y
-     de ahi los dos unicos tamanos que se usan (45 y 27).
-     Se reserva para los dos titulos y nada mas: 96 glifos, sin acentos, y a
-     tamano de texto corrido cansa. El resto de la interfaz va en la sans del
-     sistema, que si tiene tildes. */
+  /* Silkscreen (Jason Kottke, 2001), con licencia SIL OFL, que es lo que
+     permite redistribuirla con el proyecto; la fuente que habia antes era
+     freeware de uso personal y no se podia publicar en el repositorio.
+
+     Es de mapa de bits: solo cae limpia en los tamanos donde su rejilla
+     coincide con los pixeles de la pantalla. La mayuscula mide 0.625 em
+     exactos (5/8), asi que los tamanos buenos son multiplos de 8: a 24px la
+     mayuscula ocupa 15px justos y a 16px, 10px. A 30 saldria 18.75 y el
+     navegador tendria que repartir el medio pixel.
+
+     Se reserva para los dos titulos y nada mas: a tamano de texto corrido
+     cansa, y el resto de la interfaz va en la sans del sistema. */
   @font-face {
-    font-family: "BM Space";
-    src: url("fonts/bmspace.ttf") format("truetype");
+    font-family: "Silkscreen";
+    src: url("fonts/Silkscreen-Regular.ttf") format("truetype");
     font-display: swap;
   }
 
@@ -35,7 +41,7 @@
 
     --vocals: #ff6b35; --drums: #ffb703; --bass: #7b61ff; --other: #ff4d9d;
 
-    --title: "BM Space", ui-monospace, "Segoe UI", sans-serif;
+    --title: "Silkscreen", ui-monospace, "Segoe UI", sans-serif;
     --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
@@ -76,12 +82,12 @@
 
   /* --- cabecera ------------------------------------------------------------ */
 
-  /* 27 y 18: la fuente es de mapa de bits y solo cae nitida en multiplos de
-     su rejilla de 9px. Bajar de 45 a 27 no es elegir un numero mas pequeno,
-     es bajar un escalon entero. */
+  /* 24 y 16, los dos multiplos de 8 que dejan la mayuscula en pixel entero.
+     Rinde mas pequeno de lo que marca el numero: 24px de Silkscreen dan una
+     mayuscula de 15px, contra los 21px que daban los 27px de la anterior. */
   header { padding: 26px 0 0; }
   .mark {
-    font-family: var(--title); font-size: 27px; line-height: 1;
+    font-family: var(--title); font-size: 24px; line-height: 1;
     margin: 0; letter-spacing: .02em; font-weight: 400;
   }
   .mark i { font-style: normal; color: var(--tq-ink); }
@@ -106,7 +112,8 @@
   #drop.over { background: color-mix(in srgb, var(--tq) 11%, var(--wash)); border-color: var(--tq); }
   #drop.over::before { inset: 4px auto auto 4px; }
   #drop.over::after { inset: auto 4px 4px auto; }
-  #drop .big { font-family: var(--title); font-size: 18px; display: block; }
+  #drop .big { font-family: var(--title); font-size: 16px; display: block;
+               letter-spacing: .04em; }
   #drop .meta { display: block; color: var(--ink2); font-size: 12px;
                 margin-top: 8px; line-height: 1.5; }
   /* En bloque: en la columna estrecha la lista de formatos parte en dos
@@ -286,8 +293,8 @@
   }
 
   @media (max-width: 560px) {
-    .mark { font-size: 18px; }
-    #drop .big { font-size: 18px; }
+    .mark { font-size: 16px; }
+    #drop .big { font-size: 16px; }
     .facts { gap: 12px 22px; }
     .facts .v { font-size: 20px; }
     .stem .label { width: 78px; }

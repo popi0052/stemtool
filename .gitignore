@@ -16,3 +16,8 @@ web/dist/
 # alguien lo crea aqui dentro.
 .venv/
 __pycache__/
+
+# Fuente freeware de uso personal (BitmapMania/cooz): no autoriza
+# redistribucion, asi que se queda en local y fuera del repositorio.
+web/fonts/bmspace.ttf
+web/fonts/LICENSE-bmspace.txt

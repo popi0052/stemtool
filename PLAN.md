@@ -165,7 +165,7 @@ WAV 24-bit y MP3 320 por ffmpeg, bajo demanda y cacheados.
 ## Estado real (2026-11-07)
 
 ### Verificado con ejecucion, no supuesto
-- **venv persistente** en `C:\Users\Andrei\.venvs\stemtool` (fuera de la carpeta
+- **venv persistente** en `~/.venvs/stemtool` (fuera de la carpeta
   de sesion, no se borra con ella). torch **2.14.1+cu126**, CUDA activa,
   comprobada con un matmul real en GPU.
 - Elegido cu126 y no cu130 porque onnxruntime-gpu se compila contra CUDA 12 y
