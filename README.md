@@ -150,10 +150,11 @@ hace falta: es una herramienta de un solo usuario en un solo ordenador.
 - Tonalidad: perfiles de **Temperley** (corpus Kostka-Payne) en lugar de
   Krumhansl-Kessler, que salió de experimentos sobre menor natural y confunde
   menor con mayor en cuanto suena una dominante con su sensible.
-- Tipografía de los títulos:
-  [Jim Nightshade](https://fonts.google.com/specimen/Jim+Nightshade) de Brian J.
-  Bonislawsky (Astigmatic), con licencia SIL Open Font License 1.1
-  (`web/fonts/OFL-jimnightshade.txt`).
+- Tipografía: [UnifrakturCook](https://fonts.google.com/specimen/UnifrakturCook)
+  de j. 'mach' wust para los títulos y
+  [EB Garamond](https://fonts.google.com/specimen/EB+Garamond) de Georg Duffner
+  y Octavio Pardo para todo lo demás, las dos con SIL Open Font License 1.1
+  (`web/fonts/OFL-unifrakturcook.txt`, `web/fonts/OFL-ebgaramond.txt`).
 
 `PLAN.md` tiene el diario de diseño completo: qué se decidió, qué se midió y qué
 se descartó.

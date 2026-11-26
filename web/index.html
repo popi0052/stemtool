@@ -5,285 +5,329 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stemtool</title>
 <style>
-  /* Jim Nightshade (Brian J. Bonislawsky / Astigmatic), SIL OFL 1.1. Gotica
-     escrita a mano: trazo fino, puas, muy vertical.
+  /* UnifrakturCook (j. 'mach' wust) y EB Garamond (Georg Duffner y Octavio
+     Pardo), las dos con SIL OFL 1.1.
 
-     Se reserva para los dos titulos y en caja mixta. Una gotica en
-     MAYUSCULAS no se lee: las versales de estas fuentes son capitulares,
-     pensadas para ir una sola al principio de la palabra. El resto de la
-     interfaz va en la sans del sistema. */
+     Cook es una textura de verdad, no una gotica de camiseta, pero en negrita
+     tiene el peso que pide el encargo. Garamond va de cuerpo: es un tipo del
+     XVI, asi que la pagina entera queda de libro impreso y no de web oscura.
+
+     La gotica, SOLO en caja mixta y en titulos. Sus versales son capitulares,
+     dibujadas para ir una sola al principio de la palabra; ocho seguidas no
+     se leen. */
   @font-face {
-    font-family: "Jim Nightshade";
-    src: url("fonts/JimNightshade-Regular.ttf") format("truetype");
-    font-display: swap;
+    font-family: "Cook"; src: url("fonts/UnifrakturCook-Bold.ttf") format("truetype");
+    font-weight: 700; font-display: swap;
+  }
+  @font-face {
+    font-family: "EB Garamond"; src: url("fonts/EBGaramond.ttf") format("truetype");
+    font-weight: 400 800; font-display: swap;
+  }
+  @font-face {
+    font-family: "EB Garamond"; src: url("fonts/EBGaramond-Italic.ttf") format("truetype");
+    font-weight: 400 800; font-style: italic; font-display: swap;
   }
 
-  /* Dos tonos y nada mas. Sin color, el acento tiene que ser otra cosa: aqui
-     es la INVERSION. Lo activo o accionable se rellena de tinta y escribe en
-     papel; lo demas es tinta sobre papel con una linea de 1px. Por eso no hay
-     ni un --accent en todo el archivo. */
+  /* Dos tintas, como un manuscrito: negro y RUBRICA. El rojo no decora, marca
+     -- en un codice se reservaba para lo que habia que encontrar sin leer
+     (titulos, iniciales, festivos), y aqui hace exactamente lo mismo: lo
+     elegido, lo que se descarga, lo que ha fallado. Nada mas lleva color.
+
+     Oscuro por defecto, que es el encargo. En claro no se blanquea: se va a
+     pergamino, que es el mismo mundo con la luz puesta. */
   :root {
-    --paper: #fff;
-    --wash: #f2f2f2;      /* plano hundido: barras vacias, teclas, relieve */
-    --ink: #000;
-    --ink2: #767676;      /* secundario; 4.5:1 sobre papel, el minimo legible */
-    --line: #d6d6d6;
+    --ground: #0b0a09;
+    --panel:  #131110;
+    --ink:    #ded5c4;    /* hueso */
+    --ink2:   #8d8370;
+    --line:   #2e2823;
+    --rubric: #a01b1b;
+    --rubric2:#7d1313;
+    --grain: .05;
 
-    --title: "Jim Nightshade", Georgia, serif;
-    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --black: "Cook", Georgia, serif;
+    --serif: "EB Garamond", Georgia, "Times New Roman", serif;
+    color-scheme: dark;
   }
-  @media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: light) {
     :root {
-      --paper: #000; --wash: #141414; --ink: #fff; --ink2: #9a9a9a;
-      --line: #2e2e2e;
-      color-scheme: dark;
+      --ground: #e7dec9;
+      --panel:  #efe9da;
+      --ink:    #17120d;
+      --ink2:   #6c6050;
+      --line:   #c7ba9f;
+      --rubric: #8c1515;
+      --rubric2:#6d1010;
+      --grain: .08;
+      color-scheme: light;
     }
   }
 
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; padding: 0 0 40px; background: var(--paper); color: var(--ink);
-    font: 15px/1.6 var(--sans);
+    margin: 0; padding: 0 0 48px; background: var(--ground); color: var(--ink);
+    font: 17px/1.6 var(--serif);
   }
 
-  /* Dos columnas: a la izquierda lo que se usa para empezar un trabajo, a la
-     derecha lo que produce. Los controles no se van con el scroll, asi que
-     subir la segunda cancion no obliga a volver arriba, y el alto que antes
-     gastaba la cabecera ahora lo aprovecha la lista. */
+  /* Grano y viñeta, los dos fijos y sin recoger clics. El grano le quita a la
+     pantalla el plano liso: con tipos de libro, el fondo perfectamente plano
+     es lo que delata que esto no es papel. */
+  body::before, body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 2;
+  }
+  body::before {
+    opacity: var(--grain);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  body::after {
+    background: radial-gradient(ellipse at 50% 38%,
+                transparent 42%, rgba(0,0,0,.55) 100%);
+  }
+  @media (prefers-color-scheme: light) {
+    body::after { background: radial-gradient(ellipse at 50% 38%,
+                  transparent 45%, rgba(70,48,20,.30) 100%); }
+  }
+
   main {
+    position: relative; z-index: 1;
     max-width: 1240px; margin: 0 auto; padding: 0 24px;
-    display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 36px;
+    display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 40px;
     align-items: start;
   }
-  .panel { position: sticky; top: 24px; }
+  .panel { position: sticky; top: 26px; }
 
-  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  ::selection { background: var(--ink); color: var(--paper); }
+  :focus-visible { outline: 2px solid var(--rubric); outline-offset: 2px; }
+  ::selection { background: var(--rubric); color: #f1e9da; }
+
+  /* Versalita espaciada: hace de letra pequeña en toda la interfaz. Garamond
+     en minuscula a 11px se deshace; en caja alta y con aire, aguanta. */
+  .k, .lbl, .tag, .status, .presets label, .browse, .play, .dl, .empty,
+  .stem .label, .meta {
+    font-family: var(--serif); text-transform: uppercase; letter-spacing: .18em;
+  }
 
   /* --- cabecera ------------------------------------------------------------ */
 
-  header { padding: 28px 0 0; }
+  header { padding: 30px 0 0; }
   .mark {
-    font-family: var(--title); font-size: 38px; line-height: 1;
-    margin: 0; font-weight: 400; letter-spacing: .01em;
+    font-family: var(--black); font-weight: 700; font-size: 44px;
+    line-height: 1.05; margin: 0; letter-spacing: .01em;
   }
-  .rule { height: 1px; background: var(--ink); margin: 16px 0 12px; }
-  .lede { color: var(--ink2); margin: 0 0 20px; font-size: 13.5px; line-height: 1.5; }
+  /* Filete con la cruz al medio: dos hairlines que arrancan del glifo. */
+  .rule {
+    display: flex; align-items: center; gap: 10px; margin: 14px 0 16px;
+    color: var(--rubric);
+  }
+  .rule::before, .rule::after {
+    content: ""; flex: 1; height: 0; border-top: 1px solid var(--line);
+  }
+  .rule span { font-size: 13px; line-height: 1; }
+  .lede { color: var(--ink2); margin: 0 0 22px; font-size: 15px; line-height: 1.55; }
+  /* Capitular: la inicial baja dos lineas, como en un codice. */
+  .lede .cap {
+    float: left; font-family: var(--black); font-weight: 700; font-size: 46px;
+    line-height: .82; margin: 2px 8px 0 0; color: var(--rubric);
+  }
 
   /* --- zona de soltar ------------------------------------------------------ */
 
-  /* Borde discontinuo: dice "sueltalo aqui" sin un solo adorno, y deja la
-     linea continua libre para marcar el momento en que el archivo entra. */
   #drop {
-    background: var(--paper); border: 1px dashed var(--line);
-    padding: 30px 18px; text-align: center; cursor: pointer;
-    transition: background .12s linear, border-color .12s linear;
+    background: var(--panel); border: 3px double var(--line);
+    padding: 28px 18px; text-align: center; cursor: pointer;
+    transition: border-color .14s linear, background .14s linear;
   }
   #drop:hover { border-color: var(--ink2); }
-  #drop.over { border: 1px solid var(--ink); background: var(--wash); }
+  #drop.over { border-color: var(--rubric); background: var(--ground); }
   #drop .big {
-    font-family: var(--title); font-size: 24px; display: block; line-height: 1.2;
+    font-family: var(--black); font-weight: 700; font-size: 25px;
+    display: block; line-height: 1.25;
   }
-  #drop .meta { display: block; color: var(--ink2); font-size: 12px;
-                margin-top: 8px; line-height: 1.5; }
-  /* En bloque: en la columna estrecha la lista de formatos parte en dos
-     lineas y el boton se subia a hacerle compania a la ultima. */
+  #drop .meta { display: block; color: var(--ink2); font-size: 10.5px;
+                letter-spacing: .14em; margin-top: 10px; line-height: 1.9; }
   .browse {
-    display: block; margin: 16px auto 0;
-    font: 600 12.5px/1 var(--sans); text-transform: uppercase;
-    letter-spacing: .08em; background: var(--ink); color: var(--paper);
-    border: 1px solid var(--ink); padding: 11px 20px; cursor: pointer;
+    display: block; margin: 18px auto 0; font-size: 11.5px; font-weight: 600;
+    background: none; color: var(--ink); border: 1px solid var(--ink2);
+    padding: 11px 22px; cursor: pointer;
   }
   .browse:hover, #drop:hover .browse {
-    background: var(--paper); color: var(--ink);
+    background: var(--rubric); border-color: var(--rubric); color: #f1e9da;
   }
 
   /* --- preajustes ---------------------------------------------------------- */
 
-  /* En columna, no lado a lado: en 330px de ancho "Máxima calidad · RoFormer
-     + Demucs" parte en tres lineas y el boton queda mas alto que ancho. */
-  .presets { display: flex; flex-direction: column; margin: 16px 0 10px;
+  .presets { display: flex; flex-direction: column; margin: 18px 0 12px;
              border: 1px solid var(--line); }
   .presets label {
-    padding: 10px 13px; cursor: pointer;
-    text-transform: uppercase; letter-spacing: .09em; font-size: 12.5px;
-    font-weight: 600; color: var(--ink2);
-    transition: background .12s linear, color .12s linear;
+    padding: 11px 14px; cursor: pointer; font-size: 11.5px; font-weight: 600;
+    color: var(--ink2); transition: background .14s linear, color .14s linear;
   }
   .presets label + label { border-top: 1px solid var(--line); }
   .presets input { position: absolute; opacity: 0; pointer-events: none; }
-  .presets label:has(input:checked) { background: var(--ink); color: var(--paper); }
-  .presets label:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .presets label:has(input:checked) { background: var(--rubric); color: #f1e9da; }
+  .presets label:has(input:focus-visible) { outline: 2px solid var(--rubric); outline-offset: 2px; }
   .presets small {
-    display: block; font-size: 11px; font-weight: 400; letter-spacing: 0;
-    text-transform: none; opacity: .75; margin-top: 3px;
+    display: block; font-size: 12.5px; font-weight: 400; letter-spacing: 0;
+    text-transform: none; font-style: italic; opacity: .85; margin-top: 2px;
   }
-  .hint { color: var(--ink2); font-size: 12px; margin: 0; line-height: 2; }
+  .hint { color: var(--ink2); font-size: 13px; margin: 0; line-height: 2.1;
+          font-style: italic; }
   .hint kbd {
-    font: 600 11px/1 var(--sans); border: 1px solid var(--line);
-    padding: 3px 6px; color: var(--ink); background: var(--wash);
+    font: 600 10.5px/1 var(--serif); text-transform: uppercase;
+    letter-spacing: .14em; border: 1px solid var(--line); padding: 4px 7px;
+    color: var(--ink); background: var(--panel); font-style: normal;
   }
 
   /* --- tarjetas ------------------------------------------------------------ */
 
-  /* El filo izquierdo lleva el estado, por grosor de tinta y no por color:
-     gris claro en reposo, medio mientras trabaja, negro entero si fallo. */
   .card {
     border: 1px solid var(--line); border-left: 3px solid var(--line);
-    background: var(--paper); padding: 15px 17px; margin-bottom: 12px;
+    background: var(--panel); padding: 16px 18px; margin-bottom: 14px;
   }
   .card.live { border-left-color: var(--ink2); }
-  .card.bad { border-left-color: var(--ink); }
+  .card.bad { border-left-color: var(--rubric); }
   .top { display: flex; align-items: center; gap: 12px; }
-  .name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden;
-          text-overflow: ellipsis; white-space: nowrap; }
+  .name { font-weight: 600; font-size: 17px; flex: 1; min-width: 0;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tag {
-    text-transform: uppercase; letter-spacing: .1em; font-size: 10px;
-    font-weight: 600; border: 1px solid var(--line); padding: 4px 8px;
-    color: var(--ink2); white-space: nowrap;
+    font-size: 9.5px; font-weight: 600; border: 1px solid var(--line);
+    padding: 4px 9px; color: var(--ink2); white-space: nowrap;
   }
   .x { background: none; border: 0; color: var(--ink2); cursor: pointer;
-       font-size: 15px; line-height: 1; padding: 4px 6px; }
-  .x:hover { color: var(--ink); }
+       font-size: 16px; line-height: 1; padding: 4px 6px; }
+  .x:hover { color: var(--rubric); }
 
-  /* Lectura de datos: lo que el usuario vino a saber, en grande */
-  .facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 13px 0 0; }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 14px 0 0; }
   .facts > div { display: flex; flex-direction: column-reverse; }
-  .facts .k {
-    text-transform: uppercase; letter-spacing: .12em; font-size: 10px;
-    font-weight: 600; color: var(--ink2); margin-top: 2px;
-  }
+  .facts .k { font-size: 9.5px; font-weight: 600; color: var(--ink2); margin-top: 3px; }
   .facts .v {
-    font-size: 22px; font-weight: 600; line-height: 1.1;
-    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    font-size: 27px; font-weight: 500; line-height: 1.1;
+    /* Garamond trae numeros elzevirianos (el 1 y el 7 a la altura de la x).
+       Son preciosos en un parrafo y malos en un panel: aqui se piden los de
+       caja alta y de ancho fijo, que es lo que se lee de un vistazo. */
+    font-variant-numeric: lining-nums tabular-nums;
   }
-  .facts .v.soft { color: var(--ink2); font-weight: 500; }
-  /* La duda se marca en cursiva, no en ambar: sin color, la forma de la letra
-     es lo unico que queda para decir "esto no te lo creas del todo". */
-  .warn { color: var(--ink2); font-size: 11px; font-style: italic;
-          font-weight: 400; letter-spacing: 0; margin-left: 7px;
+  .facts .v.soft { color: var(--ink2); }
+  /* La duda, en cursiva. El rojo esta reservado para lo que hay que
+     encontrar sin leer, y una tonalidad floja no es eso. */
+  .warn { color: var(--ink2); font-size: 12.5px; font-style: italic;
+          letter-spacing: 0; text-transform: none; margin-left: 8px;
           white-space: nowrap; }
 
-  .bar { height: 6px; background: var(--wash); margin: 14px 0 7px; overflow: hidden; }
+  .bar { height: 5px; background: var(--ground); border: 1px solid var(--line);
+         margin: 15px 0 8px; overflow: hidden; }
   .bar i {
-    display: block; height: 100%; width: 0; background: var(--ink);
+    display: block; height: 100%; width: 0; background: var(--rubric);
     transition: width .35s linear;
-    /* Segmentado: se ve avanzar aunque el porcentaje se mueva despacio */
     -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px);
     mask-image: repeating-linear-gradient(90deg, #000 0 7px, transparent 7px 9px);
   }
-  .status {
-    text-transform: uppercase; letter-spacing: .09em; font-size: 11.5px;
-    font-weight: 600; color: var(--ink2);
-  }
-  /* El error se invierte. Es la unica etiqueta de toda la interfaz que lo
-     hace sin que la toques, y por eso se ve de lejos. */
+  .status { font-size: 10.5px; font-weight: 600; color: var(--ink2); }
   .status.err {
-    background: var(--ink); color: var(--paper); padding: 3px 8px;
+    background: var(--rubric); color: #f1e9da; padding: 3px 9px;
     display: inline-block;
   }
 
   /* --- mezclador ------------------------------------------------------------ */
 
-  .stems { margin: 14px 0 0; display: none; border-top: 1px solid var(--line); }
+  .stems { margin: 15px 0 0; display: none; border-top: 1px solid var(--line); }
   .stems.on { display: block; }
   .stem {
-    display: flex; align-items: center; gap: 12px; padding: 7px 0;
+    display: flex; align-items: center; gap: 13px; padding: 8px 0;
     border-bottom: 1px solid var(--line);
   }
   .stem:last-child { border-bottom: 0; }
-  .stem input[type=checkbox] { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; }
-  .stem .label {
-    text-transform: uppercase; letter-spacing: .1em; font-size: 12.5px;
-    font-weight: 600; width: 92px; flex: none;
-  }
+  .stem input[type=checkbox] { accent-color: var(--rubric); width: 15px; height: 15px; margin: 0; }
+  .stem .label { font-size: 11.5px; font-weight: 600; width: 96px; flex: none; }
   .stem.off .label { opacity: .4; }
   /* Medidor: se mide antes de la ganancia, asi un stem silenciado sigue
      delatando que tiene senal (sirve para oir fugas entre pistas). */
-  .meter { flex: 1; height: 10px; background: var(--wash); min-width: 40px; }
+  .meter { flex: 1; height: 9px; background: var(--ground);
+           border: 1px solid var(--line); min-width: 40px; }
   .meter i { display: block; height: 100%; width: 100%; background: var(--ink);
              transform: scaleX(0); transform-origin: left; }
   .stem.off .meter i { background: var(--ink2); }
   .stem button {
-    font: 700 12px/1 var(--sans); background: none; border: 1px solid var(--line);
-    color: var(--ink2); cursor: pointer; width: 32px; padding: 7px 0;
+    font: 600 11px/1 var(--serif); letter-spacing: .1em; background: none;
+    border: 1px solid var(--line); color: var(--ink2); cursor: pointer;
+    width: 32px; padding: 8px 0;
   }
-  .stem button:hover { border-color: var(--ink); color: var(--ink); }
-  .stem button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .stem button:hover { border-color: var(--ink2); color: var(--ink); }
+  .stem button.on { background: var(--rubric); border-color: var(--rubric); color: #f1e9da; }
 
   /* --- transporte ----------------------------------------------------------- */
 
-  .actions { display: flex; gap: 10px; align-items: center; margin-top: 13px;
-             padding-top: 13px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .actions { display: flex; gap: 11px; align-items: center; margin-top: 14px;
+             padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
   .play {
-    font-size: 13px; background: var(--ink); color: var(--paper);
-    border: 1px solid var(--ink); cursor: pointer; width: 52px; padding: 10px 0;
+    font-size: 13px; background: none; color: var(--ink);
+    border: 1px solid var(--ink2); cursor: pointer; width: 54px; padding: 10px 0;
     line-height: 1;
   }
-  .play:hover { background: var(--paper); color: var(--ink); }
+  .play:hover { background: var(--rubric); border-color: var(--rubric); color: #f1e9da; }
 
   /* Barra de posicion a mano: el control nativo es una pildora gorda que no
      pega con nada de aqui. El relleno lo pinta --p, que el reproductor
-     actualiza en cada fotograma; el pulgar es una plomada de 4px. */
+     actualiza en cada fotograma; el pulgar es una plomada de 3px. */
   .seek {
     flex: 1; min-width: 140px; height: 20px; -webkit-appearance: none;
     appearance: none; background: none; cursor: pointer;
   }
   .seek::-webkit-slider-runnable-track {
-    height: 6px; background: linear-gradient(90deg, var(--ink) var(--p, 0%), var(--line) 0);
+    height: 5px; background: linear-gradient(90deg, var(--rubric) var(--p, 0%), var(--line) 0);
   }
   .seek::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 4px; height: 20px; margin-top: -7px;
+    -webkit-appearance: none; width: 3px; height: 19px; margin-top: -7px;
     background: var(--ink); border: 0;
   }
-  .seek::-moz-range-track { height: 6px; background: var(--line); }
-  .seek::-moz-range-progress { height: 6px; background: var(--ink); }
-  .seek::-moz-range-thumb { width: 4px; height: 20px; background: var(--ink);
+  .seek::-moz-range-track { height: 5px; background: var(--line); }
+  .seek::-moz-range-progress { height: 5px; background: var(--rubric); }
+  .seek::-moz-range-thumb { width: 3px; height: 19px; background: var(--ink);
                             border: 0; border-radius: 0; }
 
-  .time { font-size: 12.5px; color: var(--ink2); white-space: nowrap;
-          font-variant-numeric: tabular-nums; }
-  .row2 { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; width: 100%; }
-  .click { display: flex; align-items: center; gap: 7px; font-size: 13px;
-           color: var(--ink2); cursor: pointer; white-space: nowrap; }
-  .click input { accent-color: var(--ink); }
+  .time { font-size: 13px; color: var(--ink2); white-space: nowrap;
+          font-variant-numeric: lining-nums tabular-nums; }
+  .row2 { display: flex; gap: 11px; align-items: center; flex-wrap: wrap; width: 100%; }
+  .click { display: flex; align-items: center; gap: 7px; font-size: 13.5px;
+           color: var(--ink2); cursor: pointer; white-space: nowrap;
+           font-style: italic; }
+  .click input { accent-color: var(--rubric); }
   select {
-    font: 500 13px/1 var(--sans); background: var(--paper); color: var(--ink);
+    font: 400 13.5px/1 var(--serif); background: var(--panel); color: var(--ink);
     border: 1px solid var(--line); padding: 10px 8px; cursor: pointer;
   }
   .dl {
-    margin-left: auto; font: 700 13px/1 var(--sans); text-transform: uppercase;
-    letter-spacing: .08em; background: var(--ink); color: var(--paper);
-    border: 1px solid var(--ink); padding: 13px 24px; cursor: pointer;
+    margin-left: auto; font-size: 11.5px; font-weight: 600;
+    background: var(--rubric); color: #f1e9da; border: 1px solid var(--rubric);
+    padding: 13px 26px; cursor: pointer;
   }
-  .dl:hover { background: var(--paper); color: var(--ink); }
-  .dl:disabled { background: var(--paper); color: var(--ink2);
-                 border-color: var(--line); cursor: default; }
+  .dl:hover { background: var(--rubric2); border-color: var(--rubric2); }
+  .dl:disabled { background: none; color: var(--ink2); border-color: var(--line);
+                 cursor: default; }
 
   .empty {
-    color: var(--ink2); text-transform: uppercase; letter-spacing: .12em;
-    font-size: 12px; font-weight: 600; text-align: center; padding: 40px 0;
+    color: var(--ink2); font-size: 11.5px; font-weight: 600; text-align: center;
+    padding: 46px 0;
   }
-  .empty.lost { color: var(--ink); }
+  .empty.lost { color: var(--rubric); }
 
   /* Una sola columna en cuanto la derecha se queda sin sitio: dos columnas
      estrechas obligan a mas scroll que una ancha, que es lo contrario de
      para lo que estan. */
   @media (max-width: 980px) {
     main { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 20px; }
-    .panel { position: static; margin-bottom: 26px; }
+    .panel { position: static; margin-bottom: 30px; }
     .presets { flex-direction: row; }
     .presets label { flex: 1; text-align: center; }
     .presets label + label { border-top: 0; border-left: 1px solid var(--line); }
   }
 
   @media (max-width: 560px) {
-    .mark { font-size: 30px; }
-    #drop .big { font-size: 21px; }
+    .mark { font-size: 34px; }
+    #drop .big { font-size: 22px; }
     .facts { gap: 12px 22px; }
-    .facts .v { font-size: 20px; }
-    .stem .label { width: 78px; }
+    .facts .v { font-size: 23px; }
+    .stem .label { width: 80px; }
     .dl { margin-left: 0; width: 100%; }
   }
 </style>
@@ -293,14 +337,15 @@
  <aside class="panel">
   <header>
     <h1 class="mark">Stemtool</h1>
-    <div class="rule"></div>
-    <p class="lede">Separador de stems local. Nada sale de este ordenador:
-      el audio se queda aquí y la GPU hace el trabajo.</p>
+    <div class="rule"><span>✠</span></div>
+    <p class="lede"><span class="cap">S</span>eparador de stems local. Nada sale
+      de este ordenador: el audio se queda aquí y la GPU hace el trabajo.</p>
   </header>
 
   <div id="drop" role="button" tabindex="0" aria-label="Soltar o elegir archivos de audio">
     <span class="big">Suelta un audio</span>
-    <span class="meta">mp3 · wav · flac · m4a · aac · ogg · opus · aiff · wma &nbsp;—&nbsp; hasta 600 MB</span>
+    <span class="meta">mp3 · wav · flac · m4a · aac · ogg · opus · aiff · wma
+      &nbsp;—&nbsp; hasta 600 MB</span>
     <button class="browse" type="button" id="browse">Elegir archivo</button>
     <input type="file" id="file" multiple accept="audio/*" hidden>
   </div>
