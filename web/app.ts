@@ -1,12 +1,8 @@
 import type { Analysis, Job, Stem } from "../types.ts";
 
-// La lista vive aqui y no importada de types.ts porque la UI manda en el orden
-// y el color de presentacion; y asi el import de tipos se borra al compilar.
+// La lista vive aqui y no importada de types.ts porque la UI manda en el
+// orden de presentacion; y asi el import de tipos se borra al compilar.
 const STEMS: Stem[] = ["vocals", "drums", "bass", "other"];
-const COLOR: Record<Stem, string> = {
-  vocals: "var(--vocals)", drums: "var(--drums)",
-  bass: "var(--bass)", other: "var(--other)",
-};
 // En minusculas y con tildes: las versalitas las pone el CSS, que si sabe
 // pasar "duración" a mayusculas sin romper el acento.
 const STATE: Record<Job["state"], string> = {
@@ -364,9 +360,8 @@ class Card {
       const row = h("div", {
         class: "stem", tabindex: "0", role: "group", "aria-label": s,
       }, pick,
-        h("span", { class: "chip", style: `background:${COLOR[s]}` }),
         h("span", { class: "label" }, s),
-        h("span", { class: "meter", style: `color:${COLOR[s]}` }, level),
+        h("span", { class: "meter" }, level),
         mute, solo);
       mute.addEventListener("click", () => {
         this.player!.toggleMute(s);
